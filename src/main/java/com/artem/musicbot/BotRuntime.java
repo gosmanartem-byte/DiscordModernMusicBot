@@ -52,7 +52,13 @@ public class BotRuntime {
             .setActivity(Activity.playing(i18n.t("status.waiting")))
             .setStatus(OnlineStatus.ONLINE)
             .setAudioModuleConfig(audioModuleConfig)
-            .addEventListeners(new CommandListener(config.prefix(), musicController, i18n, settingsStore))
+                .addEventListeners(new CommandListener(
+                    config.prefix(),
+                    musicController,
+                    i18n,
+                    settingsStore,
+                    config.dashboardEnabled(),
+                    config.dashboardPort()))
             .build();
 
         if (waitUntilReady) {

@@ -25,11 +25,15 @@ public class CommandListener extends ListenerAdapter {
     private final String defaultPrefix;
     private final MusicController musicController;
     private final GuildSettingsStore settingsStore;
+    private final boolean dashboardEnabled;
+    private final int dashboardPort;
 
-    public CommandListener(String defaultPrefix, MusicController musicController, I18n i18n, GuildSettingsStore settingsStore) {
+    public CommandListener(String defaultPrefix, MusicController musicController, I18n i18n, GuildSettingsStore settingsStore, boolean dashboardEnabled, int dashboardPort) {
         this.defaultPrefix = defaultPrefix;
         this.musicController = musicController;
         this.settingsStore = settingsStore;
+        this.dashboardEnabled = dashboardEnabled;
+        this.dashboardPort = dashboardPort;
     }
 
     @Override
@@ -71,6 +75,7 @@ public class CommandListener extends ListenerAdapter {
                         Commands.slash("setblockedrole", "Block one role from using bot commands (off to disable)")
                             .addOption(OptionType.ROLE, "role", "Role to block", false)
                             .addOption(OptionType.BOOLEAN, "off", "Set true to disable restriction", false),
+                        Commands.slash("dashboard", "Show local dashboard URL"),
                         Commands.slash("health", "Show runtime health summary"),
                         Commands.slash("debugaudio", "Show audio debug details")
                 )
@@ -180,6 +185,7 @@ public class CommandListener extends ListenerAdapter {
             case "setcommandchannel" -> doAdminChecked(channel, event.getMember(), () -> setCommandChannel(channel, argument, settings));
             case "setblockedrole" -> doAdminChecked(channel, event.getMember(), () -> setBlockedRole(channel, argument, settings));
             case "settings" -> channel.sendMessage(formatSettings(settings)).queue();
+            case "dashboard" -> channel.sendMessage(dashboardMessage()).queue();
             case "health" -> channel.sendMessage(musicController.healthSummary()).queue();
             case "help" -> channel.sendMessage(helpText(prefix)).queue();
             default -> {
@@ -279,6 +285,7 @@ public class CommandListener extends ListenerAdapter {
                 settingsStore.upsert(next);
                 event.reply("Role @" + selected.getName() + " is now blocked from bot commands.").setEphemeral(true).queue();
             });
+            case "dashboard" -> event.reply(dashboardMessage()).setEphemeral(true).queue();
             case "health" -> channel.sendMessage(musicController.healthSummary()).queue();
             case "debugaudio" -> musicController.debugAudio(channel);
             default -> {
@@ -480,10 +487,18 @@ public class CommandListener extends ListenerAdapter {
                 prefix + "setcommandchannel <#channel|channelId|off>",
                 prefix + "setblockedrole <@role|roleId|off>",
                 prefix + "settings",
+                prefix + "dashboard",
                 prefix + "player",
                 prefix + "health",
                 prefix + "debugaudio",
                 prefix + "help");
+    }
+
+    private String dashboardMessage() {
+        if (!dashboardEnabled) {
+            return "Dashboard is disabled in config (`bot.dashboard.enabled=false`).";
+        }
+        return "Local dashboard: http://127.0.0.1:" + dashboardPort + "/\nMetrics JSON: http://127.0.0.1:" + dashboardPort + "/metrics";
     }
 
     private boolean canUseTextCommands(TextChannel channel, Member member, GuildSettings settings) {
