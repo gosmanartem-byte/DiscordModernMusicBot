@@ -71,7 +71,7 @@ public class GuildSettingsStore {
                 "language TEXT NOT NULL, " +
                 "dj_role_id INTEGER NOT NULL DEFAULT 0, " +
                 "default_volume INTEGER NOT NULL DEFAULT 100, " +
-            "autoplay INTEGER NOT NULL DEFAULT 1, " +
+                "autoplay INTEGER NOT NULL DEFAULT 1, " +
                 "command_channel_id INTEGER NOT NULL DEFAULT 0, " +
                 "blocked_role_id INTEGER NOT NULL DEFAULT 0" +
                 ")";
@@ -81,7 +81,47 @@ public class GuildSettingsStore {
             statement.execute();
             ensureColumnExists(connection, "command_channel_id", "INTEGER NOT NULL DEFAULT 0");
             ensureColumnExists(connection, "blocked_role_id", "INTEGER NOT NULL DEFAULT 0");
+            runAutoplayDefaultMigration(connection);
         } catch (SQLException ignored) {
+        }
+    }
+
+    private void runAutoplayDefaultMigration(Connection connection) throws SQLException {
+        createMetaTable(connection);
+        if (isMigrationApplied(connection, "autoplay_default_on_v1")) {
+            return;
+        }
+
+        // One-time migration: align pre-existing guild rows with new autoplay default.
+        try (PreparedStatement statement = connection.prepareStatement("UPDATE guild_settings SET autoplay = 1 WHERE autoplay = 0")) {
+            statement.executeUpdate();
+        }
+
+        markMigrationApplied(connection, "autoplay_default_on_v1");
+    }
+
+    private void createMetaTable(Connection connection) throws SQLException {
+        try (PreparedStatement statement = connection.prepareStatement(
+                "CREATE TABLE IF NOT EXISTS app_meta (meta_key TEXT PRIMARY KEY, meta_value TEXT NOT NULL)")) {
+            statement.execute();
+        }
+    }
+
+    private boolean isMigrationApplied(Connection connection, String key) throws SQLException {
+        try (PreparedStatement statement = connection.prepareStatement("SELECT meta_value FROM app_meta WHERE meta_key = ?")) {
+            statement.setString(1, key);
+            try (ResultSet rs = statement.executeQuery()) {
+                return rs.next();
+            }
+        }
+    }
+
+    private void markMigrationApplied(Connection connection, String key) throws SQLException {
+        try (PreparedStatement statement = connection.prepareStatement(
+                "INSERT OR REPLACE INTO app_meta (meta_key, meta_value) VALUES (?, ?)")) {
+            statement.setString(1, key);
+            statement.setString(2, "1");
+            statement.executeUpdate();
         }
     }
 
