@@ -293,7 +293,12 @@ public class CommandListener extends ListenerAdapter {
         }
 
         if (!event.isAcknowledged()) {
-            event.reply("Done.").setEphemeral(true).queue();
+            event.deferReply(true).queue(hook -> hook.deleteOriginal().queue(
+                    ignored -> {
+                    },
+                    ignored -> {
+                    }
+            ));
         }
     }
 
