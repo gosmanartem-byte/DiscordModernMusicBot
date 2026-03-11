@@ -1,6 +1,9 @@
 package com.artem.musicbot;
 
 import java.awt.Color;
+import java.time.OffsetDateTime;
+import java.time.ZoneOffset;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
@@ -39,6 +42,7 @@ public class MusicController {
     private static final int DEFAULT_VOLUME = 100;
     private static final int MAX_VOLUME = 200;
     private static final int MAX_BASS = 5;
+    private static final int BULK_DELETE_LIMIT = 100;
 
     private final AudioPlayerManager playerManager;
     private final Map<Long, GuildMusicManager> musicManagers = new ConcurrentHashMap<>();
@@ -750,19 +754,14 @@ public class MusicController {
     }
 
     private void cleanupRecentChat(TextChannel channel) {
-        channel.getHistory().retrievePast(100).queue(messages -> {
+        channel.getHistory().retrievePast(BULK_DELETE_LIMIT).queue(messages -> {
                     if (messages.isEmpty()) {
                         return;
                     }
 
-                    messages.forEach(message -> message.delete().queue(
-                            ignored -> {
-                            },
-                            ignored -> {
-                            }
-                    ));
+                    fastDeleteBatch(channel, messages);
 
-                    if (messages.size() == 100) {
+                    if (messages.size() == BULK_DELETE_LIMIT) {
                         String beforeId = messages.get(messages.size() - 1).getId();
                         cleanupRecentChatBefore(channel, beforeId);
                     }
@@ -773,20 +772,15 @@ public class MusicController {
     }
 
     private void cleanupRecentChatBefore(TextChannel channel, String beforeId) {
-        channel.getHistoryBefore(beforeId, 100).queue(history -> {
+        channel.getHistoryBefore(beforeId, BULK_DELETE_LIMIT).queue(history -> {
                     List<Message> messages = history.getRetrievedHistory();
                     if (messages.isEmpty()) {
                         return;
                     }
 
-                    messages.forEach(message -> message.delete().queue(
-                            ignored -> {
-                            },
-                            ignored -> {
-                            }
-                    ));
+                    fastDeleteBatch(channel, messages);
 
-                    if (messages.size() == 100) {
+                    if (messages.size() == BULK_DELETE_LIMIT) {
                         String nextBeforeId = messages.get(messages.size() - 1).getId();
                         cleanupRecentChatBefore(channel, nextBeforeId);
                     }
@@ -794,6 +788,43 @@ public class MusicController {
                 ignored -> {
                 }
         );
+    }
+
+    private void fastDeleteBatch(TextChannel channel, List<Message> messages) {
+        OffsetDateTime bulkCutoff = OffsetDateTime.now(ZoneOffset.UTC).minusDays(14);
+        List<Message> bulkEligible = new ArrayList<>();
+        List<Message> fallback = new ArrayList<>();
+
+        for (Message message : messages) {
+            if (message.getTimeCreated().isAfter(bulkCutoff)) {
+                bulkEligible.add(message);
+            } else {
+                fallback.add(message);
+            }
+        }
+
+        if (bulkEligible.size() >= 2) {
+            channel.deleteMessages(bulkEligible).queue(
+                    ignored -> {
+                    },
+                    ignored -> {
+                    }
+            );
+        } else if (bulkEligible.size() == 1) {
+            bulkEligible.get(0).delete().queue(
+                    ignored -> {
+                    },
+                    ignored -> {
+                    }
+            );
+        }
+
+        fallback.forEach(message -> message.delete().queue(
+                ignored -> {
+                },
+                ignored -> {
+                }
+        ));
     }
 
     private List<MessageTopLevelComponent> playerComponents() {
