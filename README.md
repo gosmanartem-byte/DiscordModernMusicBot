@@ -14,6 +14,9 @@ Simple goal: run a stable Discord music bot locally with one config file and lau
 - Queue management (`play`, `skip`, `stop`, `leave`)
 - Audio controls (`volume`, `bass`, `loud`, `normal`)
 - In-chat player panel (`player`) with control buttons
+- Slash commands for major actions (`/play`, `/skip`, `/player`, etc.)
+- Persistent per-server settings (prefix, language, DJ role, autoplay)
+- DJ/admin permission checks for sensitive commands
 - Configurable bot language (`bot.language`)
 - Debug command for audio diagnostics (`debugaudio`)
 - Launcher scripts for macOS, Linux, and Windows
@@ -145,6 +148,8 @@ Current packaged targets:
 
 ## Commands
 
+Text commands use your configured prefix (default `!`).
+
 - `!play <url or search>`
 - `!skip`
 - `!pause`
@@ -158,9 +163,25 @@ Current packaged targets:
 - `!loud`
 - `!normal`
 - `!queue`
+- `!remove <index>`
+- `!shuffle`
+- `!clear`
+- `!loop <off|track|queue>`
+- `!seek <seconds>`
+- `!autoplay <on|off>`
 - `!player`
+- `!setprefix <value>` (admin)
+- `!setlang <value>` (admin)
+- `!settings`
+- `!health`
 - `!debugaudio`
 - `!help`
+
+Slash commands are also available after startup:
+
+- `/play`, `/skip`, `/pause`, `/resume`, `/stop`, `/queue`, `/player`
+- `/volume`, `/bass`, `/remove`, `/shuffle`, `/clear`, `/loop`, `/seek`, `/autoplay`
+- `/setprefix`, `/setlang`, `/setdj`, `/settings`, `/health`
 
 Supported language codes for `bot.language`:
 

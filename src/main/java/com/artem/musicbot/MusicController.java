@@ -1,6 +1,7 @@
 package com.artem.musicbot;
 
 import java.awt.Color;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
@@ -39,10 +40,14 @@ public class MusicController {
 
     private final AudioPlayerManager playerManager;
     private final Map<Long, GuildMusicManager> musicManagers = new ConcurrentHashMap<>();
+    private final Map<Long, String> lastTrackQueries = new ConcurrentHashMap<>();
+    private final Map<Long, TextChannel> lastTextChannels = new ConcurrentHashMap<>();
     private final I18n i18n;
+    private final GuildSettingsStore settingsStore;
 
-    public MusicController(BotConfig config, I18n i18n) {
+    public MusicController(BotConfig config, I18n i18n, GuildSettingsStore settingsStore) {
         this.i18n = i18n;
+        this.settingsStore = settingsStore;
         this.playerManager = new DefaultAudioPlayerManager();
         this.playerManager.getConfiguration().setOutputFormat(StandardAudioDataFormats.DISCORD_OPUS);
         this.playerManager.setItemLoaderThreadPoolSize(8);
@@ -61,6 +66,7 @@ public class MusicController {
     }
 
     public void loadAndPlay(TextChannel channel, Member member, String identifier) {
+        lastTextChannels.put(channel.getGuild().getIdLong(), channel);
         VoiceChannel voiceChannel = getUserVoiceChannel(member);
         if (voiceChannel == null) {
             channel.sendMessage("Join a voice channel first.").queue();
@@ -80,6 +86,7 @@ public class MusicController {
             @Override
             public void trackLoaded(AudioTrack track) {
                 musicManager.scheduler.queue(track);
+                lastTrackQueries.put(channel.getGuild().getIdLong(), track.getInfo().title);
                 channel.sendMessage("Queued: " + track.getInfo().title).queue();
             }
 
@@ -96,6 +103,7 @@ public class MusicController {
                 }
 
                 musicManager.scheduler.queue(track);
+                lastTrackQueries.put(channel.getGuild().getIdLong(), track.getInfo().title);
                 channel.sendMessage("Queued from playlist: " + track.getInfo().title).queue();
             }
 
@@ -242,6 +250,86 @@ public class MusicController {
         channel.sendMessage(builder.toString()).queue();
     }
 
+    public void remove(TextChannel channel, int index) {
+        GuildMusicManager musicManager = getGuildMusicManager(channel.getGuild());
+        boolean removed = musicManager.scheduler.removeAt(index);
+        channel.sendMessage(removed ? "Removed track #" + index + " from queue." : "Invalid queue index.").queue();
+    }
+
+    public void clearQueue(TextChannel channel) {
+        GuildMusicManager musicManager = getGuildMusicManager(channel.getGuild());
+        int removed = musicManager.scheduler.clearQueue();
+        channel.sendMessage("Cleared " + removed + " queued track(s).").queue();
+    }
+
+    public void shuffleQueue(TextChannel channel) {
+        GuildMusicManager musicManager = getGuildMusicManager(channel.getGuild());
+        int shuffled = musicManager.scheduler.shuffleQueue();
+        channel.sendMessage(shuffled == 0 ? "Queue is empty." : "Shuffled " + shuffled + " queued track(s).").queue();
+    }
+
+    public void setLoop(TextChannel channel, String mode) {
+        GuildMusicManager musicManager = getGuildMusicManager(channel.getGuild());
+        String normalized = mode == null ? "off" : mode.trim().toLowerCase();
+
+        switch (normalized) {
+            case "track" -> {
+                musicManager.scheduler.setLoopTrack(true);
+                channel.sendMessage("Loop mode set to: track.").queue();
+            }
+            case "queue" -> {
+                musicManager.scheduler.setLoopQueue(true);
+                channel.sendMessage("Loop mode set to: queue.").queue();
+            }
+            default -> {
+                musicManager.scheduler.setLoopTrack(false);
+                musicManager.scheduler.setLoopQueue(false);
+                channel.sendMessage("Loop mode set to: off.").queue();
+            }
+        }
+    }
+
+    public void seek(TextChannel channel, long seconds) {
+        if (seconds < 0) {
+            channel.sendMessage("Seek must be >= 0.").queue();
+            return;
+        }
+
+        GuildMusicManager musicManager = getGuildMusicManager(channel.getGuild());
+        boolean ok = musicManager.scheduler.seekTo(seconds * 1000L);
+        channel.sendMessage(ok ? "Seeked to " + seconds + "s." : "Nothing is playing right now.").queue();
+    }
+
+    public void setAutoplay(TextChannel channel, boolean enabled) {
+        long guildId = channel.getGuild().getIdLong();
+        GuildSettings current = settingsStore.get(guildId);
+        settingsStore.upsert(new GuildSettings(
+                current.guildId(),
+                current.prefix(),
+                current.language(),
+                current.djRoleId(),
+                current.defaultVolume(),
+                enabled
+        ));
+        channel.sendMessage("Autoplay " + (enabled ? "enabled." : "disabled.")).queue();
+    }
+
+    public String healthSummary() {
+        int guildCount = musicManagers.size();
+        int activePlayers = 0;
+        for (GuildMusicManager manager : musicManagers.values()) {
+            if (manager.player.getPlayingTrack() != null) {
+                activePlayers++;
+            }
+        }
+
+        return String.join("\n",
+                "Health:",
+                "trackedGuilds=" + guildCount,
+                "activePlayers=" + activePlayers,
+                "managedQueues=" + guildCount);
+    }
+
     public void sendPlayerPanel(TextChannel channel, String prefix) {
         channel.sendMessageEmbeds(buildPlayerEmbed(channel.getGuild(), prefix))
                 .setComponents(playerComponents())
@@ -318,9 +406,18 @@ public class MusicController {
         return musicManagers.computeIfAbsent(guild.getIdLong(), id -> {
             GuildMusicManager musicManager = new GuildMusicManager(
                     playerManager,
-                    track -> updatePresence(guild),
-                    () -> updatePresence(guild)
+                    track -> {
+                        updatePresence(guild);
+                        lastTrackQueries.put(guild.getIdLong(), track.getInfo().title);
+                    },
+                    () -> {
+                        updatePresence(guild);
+                        maybeAutoplay(guild, musicManagerRef(guild));
+                    }
             );
+
+            int defaultVolume = settingsStore.get(guild.getIdLong()).defaultVolume();
+            musicManager.player.setVolume(Math.max(0, Math.min(MAX_VOLUME, defaultVolume)));
             guild.getAudioManager().setSendingHandler(musicManager.sendHandler);
             return musicManager;
         });
@@ -425,6 +522,58 @@ public class MusicController {
         }
 
         return String.format("%d:%02d", minutes, seconds);
+    }
+
+    private void maybeAutoplay(Guild guild, GuildMusicManager musicManager) {
+        if (musicManager == null || musicManager.player.getPlayingTrack() != null || !musicManager.scheduler.getQueue().isEmpty()) {
+            return;
+        }
+
+        GuildSettings settings = settingsStore.get(guild.getIdLong());
+        if (!settings.autoplay()) {
+            return;
+        }
+
+        String baseQuery = lastTrackQueries.get(guild.getIdLong());
+        TextChannel announceChannel = lastTextChannels.get(guild.getIdLong());
+        if (baseQuery == null || baseQuery.isBlank() || announceChannel == null) {
+            return;
+        }
+
+        String query = "ytsearch:" + baseQuery;
+        playerManager.loadItemOrdered(musicManager, query, new AudioLoadResultHandler() {
+            @Override
+            public void trackLoaded(AudioTrack track) {
+                musicManager.scheduler.queue(track);
+                lastTrackQueries.put(guild.getIdLong(), track.getInfo().title);
+                announceChannel.sendMessage("Autoplay queued: " + track.getInfo().title).queue();
+            }
+
+            @Override
+            public void playlistLoaded(AudioPlaylist playlist) {
+                AudioTrack selected = playlist.getSelectedTrack();
+                if (selected == null && !playlist.getTracks().isEmpty()) {
+                    selected = playlist.getTracks().get(0);
+                }
+                if (selected != null) {
+                    musicManager.scheduler.queue(selected);
+                    lastTrackQueries.put(guild.getIdLong(), selected.getInfo().title);
+                    announceChannel.sendMessage("Autoplay queued: " + selected.getInfo().title).queue();
+                }
+            }
+
+            @Override
+            public void noMatches() {
+            }
+
+            @Override
+            public void loadFailed(FriendlyException exception) {
+            }
+        });
+    }
+
+    private GuildMusicManager musicManagerRef(Guild guild) {
+        return musicManagers.get(guild.getIdLong());
     }
 
     private void connect(Guild guild, VoiceChannel voiceChannel, GuildMusicManager musicManager) {

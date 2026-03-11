@@ -29,12 +29,13 @@ public class BotRuntime {
 
         BotConfig config = BotConfig.load(configPath);
         I18n i18n = new I18n(config.languageCode());
+        GuildSettingsStore settingsStore = new GuildSettingsStore(Path.of("guild-settings.db"), config.prefix(), config.languageCode());
 
         AudioModuleConfig audioModuleConfig = new AudioModuleConfig()
             .withDaveSessionFactory(new JDaveSessionFactory())
             .withAudioSendFactory(new DefaultSendFactory());
 
-        MusicController musicController = new MusicController(config, i18n);
+        MusicController musicController = new MusicController(config, i18n, settingsStore);
 
         JDA built = JDABuilder.createDefault(config.token(), EnumSet.of(
                 GatewayIntent.GUILD_MESSAGES,
@@ -49,7 +50,7 @@ public class BotRuntime {
             .setActivity(Activity.playing(i18n.t("status.waiting")))
             .setStatus(OnlineStatus.ONLINE)
             .setAudioModuleConfig(audioModuleConfig)
-            .addEventListeners(new CommandListener(config.prefix(), musicController, i18n))
+            .addEventListeners(new CommandListener(config.prefix(), musicController, i18n, settingsStore))
             .build();
 
         if (waitUntilReady) {

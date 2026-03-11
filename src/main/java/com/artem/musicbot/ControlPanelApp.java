@@ -12,12 +12,14 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.time.LocalTime;
 import java.time.format.DateTimeFormatter;
+import java.util.Arrays;
 import java.util.Properties;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
 import javax.swing.BorderFactory;
 import javax.swing.JButton;
+import javax.swing.JComboBox;
 import javax.swing.JFrame;
 import javax.swing.JLabel;
 import javax.swing.JOptionPane;
@@ -32,6 +34,22 @@ import javax.swing.WindowConstants;
 public class ControlPanelApp {
     private static final DateTimeFormatter TIME_FORMAT = DateTimeFormatter.ofPattern("HH:mm:ss");
     private static final Path CONFIG_PATH = Path.of("ModernMusicBot.properties");
+    private static final LanguageOption[] LANGUAGE_OPTIONS = {
+        new LanguageOption("English", "en"),
+        new LanguageOption("Russian", "ru"),
+        new LanguageOption("Armenian", "hy"),
+        new LanguageOption("Georgian", "ka"),
+        new LanguageOption("Azerbaijani", "az"),
+        new LanguageOption("Kazakh", "kk"),
+        new LanguageOption("Uzbek", "uz"),
+        new LanguageOption("Ukrainian", "uk"),
+        new LanguageOption("German", "de"),
+        new LanguageOption("Spanish", "es"),
+        new LanguageOption("Italian", "it"),
+        new LanguageOption("Portuguese", "pt"),
+        new LanguageOption("Chinese", "zh"),
+        new LanguageOption("Japanese", "ja")
+    };
 
     private final BotRuntime runtime = new BotRuntime();
     private final ExecutorService worker = Executors.newSingleThreadExecutor();
@@ -39,7 +57,7 @@ public class ControlPanelApp {
     private JFrame frame;
     private JPasswordField tokenField;
     private JTextField prefixField;
-    private JTextField languageField;
+    private JComboBox<LanguageOption> languageCombo;
     private JTextArea console;
     private JButton startButton;
     private JButton stopButton;
@@ -86,12 +104,13 @@ public class ControlPanelApp {
         c.gridx = 0;
         c.gridy = 2;
         c.weightx = 0;
-        top.add(new JLabel("Language code:"), c);
+        top.add(new JLabel("Language:"), c);
 
-        languageField = new JTextField("en");
+        languageCombo = new JComboBox<>(LANGUAGE_OPTIONS);
+        languageCombo.setSelectedIndex(0);
         c.gridx = 1;
         c.weightx = 1.0;
-        top.add(languageField, c);
+        top.add(languageCombo, c);
 
         JPanel buttons = new JPanel();
         startButton = new JButton("Start");
@@ -182,13 +201,15 @@ public class ControlPanelApp {
 
         tokenField.setText(props.getProperty("bot.token", ""));
         prefixField.setText(props.getProperty("bot.prefix", "!"));
-        languageField.setText(props.getProperty("bot.language", "en"));
+        String languageCode = props.getProperty("bot.language", "en").trim();
+        selectLanguage(languageCode);
     }
 
     private void saveConfigFromFields() throws IOException {
         String token = new String(tokenField.getPassword()).trim();
         String prefix = prefixField.getText().trim();
-        String language = languageField.getText().trim();
+        LanguageOption selected = (LanguageOption) languageCombo.getSelectedItem();
+        String language = selected == null ? "en" : selected.code();
 
         if (token.isEmpty()) {
             throw new IllegalStateException("Token cannot be empty.");
@@ -197,11 +218,6 @@ public class ControlPanelApp {
         if (prefix.isEmpty()) {
             prefix = "!";
             prefixField.setText(prefix);
-        }
-
-        if (language.isEmpty()) {
-            language = "en";
-            languageField.setText(language);
         }
 
         Properties props = new Properties();
@@ -232,5 +248,20 @@ public class ControlPanelApp {
 
     private void showError(String message) {
         JOptionPane.showMessageDialog(frame, message, "Error", JOptionPane.ERROR_MESSAGE);
+    }
+
+    private void selectLanguage(String languageCode) {
+        LanguageOption option = Arrays.stream(LANGUAGE_OPTIONS)
+                .filter(item -> item.code().equalsIgnoreCase(languageCode))
+                .findFirst()
+                .orElse(LANGUAGE_OPTIONS[0]);
+        languageCombo.setSelectedItem(option);
+    }
+
+    private record LanguageOption(String label, String code) {
+        @Override
+        public String toString() {
+            return label + " (" + code + ")";
+        }
     }
 }

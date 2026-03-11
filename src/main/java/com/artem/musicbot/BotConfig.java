@@ -24,6 +24,7 @@ public record BotConfig(String token, String prefix, String youtubePoToken, Stri
         String youtubePoToken = properties.getProperty("youtube.poToken", "").trim();
         String youtubeVisitorData = properties.getProperty("youtube.visitorData", "").trim();
         String languageCode = properties.getProperty("bot.language", "en").trim();
+        validate(prefix, languageCode);
         return new BotConfig(token, prefix, youtubePoToken, youtubeVisitorData, languageCode);
     }
 
@@ -58,6 +59,7 @@ public record BotConfig(String token, String prefix, String youtubePoToken, Stri
         }
 
         String languageCode = properties.getProperty("language", "en").trim();
+        validate(prefix, languageCode);
         return new BotConfig(token, prefix, "", "", languageCode);
     }
 
@@ -76,5 +78,13 @@ public record BotConfig(String token, String prefix, String youtubePoToken, Stri
             throw new IllegalStateException("Missing required property: " + key);
         }
         return value;
+    }
+
+    private static void validate(String prefix, String languageCode) {
+        if (prefix.isBlank() || prefix.length() > 3) {
+            throw new IllegalStateException("bot.prefix must be 1-3 non-space characters.");
+        }
+
+        I18n.Language.from(languageCode);
     }
 }

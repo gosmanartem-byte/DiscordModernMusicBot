@@ -6,6 +6,9 @@ dist/
 ModernMusicBot.properties
 application.properties
 modernbot.log
+guild-settings.db
+guild-settings.db-shm
+guild-settings.db-wal
 
 # OS/editor noise
 .DS_Store
