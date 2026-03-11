@@ -112,7 +112,10 @@ public final class I18n {
             Map.entry("player.queue", "Queue"),
                 Map.entry("player.refresh", "Refresh"),
             Map.entry("player.volup", "Vol +"),
-            Map.entry("player.voldown", "Vol -")
+                Map.entry("player.voldown", "Vol -"),
+                Map.entry("player.bassup", "Bass +"),
+                Map.entry("player.bassdown", "Bass -"),
+                Map.entry("player.bassreset", "Bass 0")
     );
 
     private static final Map<String, String> RU = Map.ofEntries(
@@ -171,7 +174,10 @@ public final class I18n {
             Map.entry("player.queue", "Очередь"),
                 Map.entry("player.refresh", "Обновить"),
             Map.entry("player.volup", "Громк +"),
-            Map.entry("player.voldown", "Громк -")
+                    Map.entry("player.voldown", "Громк -"),
+                    Map.entry("player.bassup", "Бас +"),
+                    Map.entry("player.bassdown", "Бас -"),
+                    Map.entry("player.bassreset", "Бас 0")
     );
 
     private final Language language;

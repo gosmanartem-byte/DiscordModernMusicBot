@@ -363,9 +363,11 @@ public class CommandListener extends ListenerAdapter {
             case "player:resume" -> doDjChecked(channel, event.getMember(), settings, () -> musicController.resume(channel));
             case "player:skip" -> doDjChecked(channel, event.getMember(), settings, () -> musicController.skip(channel));
             case "player:stop" -> doDjChecked(channel, event.getMember(), settings, () -> musicController.stop(channel));
-            case "player:queue" -> musicController.queue(channel);
             case "player:volup" -> doDjChecked(channel, event.getMember(), settings, () -> musicController.adjustVolume(channel, 10));
             case "player:voldown" -> doDjChecked(channel, event.getMember(), settings, () -> musicController.adjustVolume(channel, -10));
+            case "player:bassup" -> doDjChecked(channel, event.getMember(), settings, () -> musicController.adjustBass(channel, 1));
+            case "player:bassdown" -> doDjChecked(channel, event.getMember(), settings, () -> musicController.adjustBass(channel, -1));
+            case "player:bassreset" -> doDjChecked(channel, event.getMember(), settings, () -> musicController.setBass(channel, 0));
             case "player:refresh" -> {
             }
             default -> {

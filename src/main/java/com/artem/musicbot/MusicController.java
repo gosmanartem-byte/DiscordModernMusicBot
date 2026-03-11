@@ -337,6 +337,15 @@ public class MusicController {
         refreshPersistentPlayerPanel(channel.getGuild());
     }
 
+    public void adjustBass(TextChannel channel, int delta) {
+        GuildMusicManager musicManager = getGuildMusicManager(channel.getGuild());
+        int current = musicManager.getBassLevel();
+        int next = Math.max(0, Math.min(MAX_BASS, current + delta));
+        applyBassBoost(musicManager, next);
+        channel.sendMessage("Bass boost set to " + next + ".").queue();
+        refreshPersistentPlayerPanel(channel.getGuild());
+    }
+
     public void showBass(TextChannel channel) {
         GuildMusicManager musicManager = getGuildMusicManager(channel.getGuild());
         channel.sendMessage("Current bass boost: " + musicManager.getBassLevel() + ".").queue();
@@ -741,14 +750,47 @@ public class MusicController {
     }
 
     private void cleanupRecentChat(TextChannel channel) {
-        // Best-effort cleanup of recent chat clutter after stop.
-        channel.getHistory().retrievePast(100).queue(messages -> messages.forEach(message ->
-                        message.delete().queue(
-                                ignored -> {
-                                },
-                                ignored -> {
-                                }
-                        )),
+        channel.getHistory().retrievePast(100).queue(messages -> {
+                    if (messages.isEmpty()) {
+                        return;
+                    }
+
+                    messages.forEach(message -> message.delete().queue(
+                            ignored -> {
+                            },
+                            ignored -> {
+                            }
+                    ));
+
+                    if (messages.size() == 100) {
+                        String beforeId = messages.get(messages.size() - 1).getId();
+                        cleanupRecentChatBefore(channel, beforeId);
+                    }
+                },
+                ignored -> {
+                }
+        );
+    }
+
+    private void cleanupRecentChatBefore(TextChannel channel, String beforeId) {
+        channel.getHistoryBefore(beforeId, 100).queue(history -> {
+                    List<Message> messages = history.getRetrievedHistory();
+                    if (messages.isEmpty()) {
+                        return;
+                    }
+
+                    messages.forEach(message -> message.delete().queue(
+                            ignored -> {
+                            },
+                            ignored -> {
+                            }
+                    ));
+
+                    if (messages.size() == 100) {
+                        String nextBeforeId = messages.get(messages.size() - 1).getId();
+                        cleanupRecentChatBefore(channel, nextBeforeId);
+                    }
+                },
                 ignored -> {
                 }
         );
@@ -765,6 +807,11 @@ public class MusicController {
                 ActionRow.of(
                         Button.secondary("player:voldown", i18n.t("player.voldown")),
                         Button.secondary("player:volup", i18n.t("player.volup")),
+                    Button.secondary("player:bassdown", i18n.t("player.bassdown")),
+                    Button.secondary("player:bassup", i18n.t("player.bassup"))
+                ),
+                ActionRow.of(
+                    Button.secondary("player:bassreset", i18n.t("player.bassreset")),
                         Button.secondary("player:refresh", i18n.t("player.refresh"))
                 )
         );
