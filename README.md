@@ -6,7 +6,7 @@
 
 Modern Java Discord music bot built with JDA, Lavaplayer, youtube-source, and JDave voice encryption support.
 
-Simple goal: run a stable Discord music bot locally with one config file and two launcher scripts.
+Simple goal: run a stable Discord music bot locally with one config file and launcher scripts.
 
 ## Features
 
@@ -14,18 +14,44 @@ Simple goal: run a stable Discord music bot locally with one config file and two
 - Queue management (`play`, `skip`, `stop`, `leave`)
 - Audio controls (`volume`, `bass`, `loud`, `normal`)
 - Debug command for audio diagnostics (`debugaudio`)
-- macOS launcher scripts (`start.command`, `stop.command`)
+- Launcher scripts for macOS, Linux, and Windows
 
 ## Requirements
 
 - Java 25
 - Maven 3.9+
 - Discord bot token
-- macOS (launcher scripts are macOS-first)
+
+## Beginner Setup (Step By Step)
+
+If you are not technical, follow these steps exactly.
+
+### 1. Create Discord Bot Token
+
+1. Open `https://discord.com/developers/applications`
+2. Click `New Application`
+3. Enter any app name and click `Create`
+4. Open the `Bot` tab
+5. Click `Reset Token` (or `Add Bot` first if needed)
+6. Copy the token and keep it private
+
+### 2. Enable Required Intents
+
+In the same `Bot` tab, enable:
+
+- `MESSAGE CONTENT INTENT`
+- `SERVER MEMBERS INTENT`
+
+### 3. Invite Bot To Your Server
+
+1. Open `OAuth2` -> `URL Generator`
+2. Select scope: `bot`
+3. Select permissions: `View Channels`, `Send Messages`, `Connect`, `Speak`
+4. Open generated link and invite the bot
 
 ## Quick Start
 
-1. Clone this repository.
+1. Download this project (or a release zip) and open the folder.
 2. In project root, copy config template:
 
 ```bash
@@ -114,6 +140,7 @@ Current packaged targets:
 
 - Never commit `ModernMusicBot.properties` with a real token.
 - If a token is exposed, rotate it immediately in Discord Developer Portal.
+- Never paste your token in chat, screenshots, or public posts.
 
 ## Contributing
 
