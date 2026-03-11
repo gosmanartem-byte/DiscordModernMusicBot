@@ -1,12 +1,13 @@
 # DiscordModernMusicBot
 
+![Version](https://img.shields.io/badge/Version-1.1.0-brightgreen)
 ![Java 25](https://img.shields.io/badge/Java-25-blue)
 ![Maven 3.9+](https://img.shields.io/badge/Maven-3.9%2B-C71A36)
-![Platform macOS](https://img.shields.io/badge/Platform-macOS-lightgrey)
+![Platform](https://img.shields.io/badge/Platform-macOS%20%7C%20Windows%20%7C%20Linux-lightgrey)
 
-Modern Java Discord music bot built with JDA, Lavaplayer, youtube-source, and JDave voice encryption support.
+Modern Java Discord music bot built with JDA, Lavaplayer, youtube-source, and JDave voice encryption support (including E2EE/DAVE).
 
-Simple goal: run a stable Discord music bot locally with one config file and launcher scripts.
+**As of v1.1.0, ModernMusicBot is a native desktop app.** Download the installer for your platform, install it like any other program, enter your bot token, and start the bot — no Java, no terminal, no config files to hunt down.
 
 ## Features
 
@@ -20,45 +21,63 @@ Simple goal: run a stable Discord music bot locally with one config file and lau
 - Configurable bot language (`bot.language`)
 - Debug command for audio diagnostics (`debugaudio`)
 - Local web dashboard (`/`) and JSON metrics endpoint (`/metrics`) on localhost
-- Launcher scripts for macOS, Linux, and Windows
 
-## Requirements
+## Supported Platforms
+
+| Platform | Installer | Portable ZIP |
+|---|---|---|
+| macOS (Apple Silicon) | `.dmg` | ✓ |
+| macOS (Intel) | `.dmg` | ✓ |
+| Windows x86-64 | `.exe` | ✓ |
+| Linux x86-64 | — | ✓ |
+| Linux ARM64 | — | ✓ |
+
+> Windows ARM is not supported.
+
+## Getting Started (Recommended — Native Installer)
+
+### Step 1: Create a Discord Bot Token
+
+1. Go to the [Discord Developer Portal](https://discord.com/developers/applications)
+2. Click **New Application**, give it a name, and click **Create**
+3. Open the **Bot** tab
+4. Click **Reset Token** and copy it — keep it private
+
+### Step 2: Enable Required Intents
+
+In the **Bot** tab, enable:
+
+- `MESSAGE CONTENT INTENT`
+- `SERVER MEMBERS INTENT`
+
+### Step 3: Invite the Bot to Your Server
+
+1. Go to **OAuth2 → URL Generator**
+2. Select scope: `bot`
+3. Select permissions: `View Channels`, `Send Messages`, `Connect`, `Speak`
+4. Open the generated link and invite the bot
+
+### Step 4: Install & Launch
+
+1. Download the installer for your platform from the [Releases](../../releases) page
+2. Install it like any normal application (`.dmg` on macOS, `.exe` on Windows)
+3. Open **ModernMusicBot** — the control panel will appear
+4. Enter your bot token in the settings form and click **Start**
+
+> The native installers bundle their own Java runtime. No separate Java installation required.
+
+## Portable ZIP Setup (Advanced)
+
+If you prefer the ZIP release or are on Linux:
+
+### Requirements
 
 - Java 25
 - Maven 3.9+
 - Discord bot token
 
-## Beginner Setup (Step By Step)
-
-If you are not technical, follow these steps exactly.
-
-### 1. Create Discord Bot Token
-
-1. Open `https://discord.com/developers/applications`
-2. Click `New Application`
-3. Enter any app name and click `Create`
-4. Open the `Bot` tab
-5. Click `Reset Token` (or `Add Bot` first if needed)
-6. Copy the token and keep it private
-
-### 2. Enable Required Intents
-
-In the same `Bot` tab, enable:
-
-- `MESSAGE CONTENT INTENT`
-- `SERVER MEMBERS INTENT`
-
-### 3. Invite Bot To Your Server
-
-1. Open `OAuth2` -> `URL Generator`
-2. Select scope: `bot`
-3. Select permissions: `View Channels`, `Send Messages`, `Connect`, `Speak`
-4. Open generated link and invite the bot
-
-## Quick Start
-
-1. Download this project (or a release zip) and open the folder.
-2. In project root, copy config template:
+1. Extract the ZIP and open the folder
+2. Copy the config template:
 
 ```bash
 cp ModernMusicBot.properties.example ModernMusicBot.properties
@@ -79,95 +98,51 @@ Local runtime observability:
 - Dashboard: `http://127.0.0.1:8090/`
 - Metrics JSON: `http://127.0.0.1:8090/metrics`
 
-### Easiest Option (Control Panel)
-
-Use the desktop-like control panel with Start/Stop buttons and built-in settings form.
+4. Launch the control panel:
 
 macOS:
-
 ```bash
 ./control-panel.command
 ```
 
 Linux:
-
 ```bash
 ./control-panel.sh
 ```
 
 Windows:
-
 ```bat
 control-panel.bat
 ```
 
-4. Start bot:
+Or start/stop the bot directly:
 
-```bash
-./start.command
-```
+macOS: `./start.command` / `./stop.command`  
+Linux: `./start.sh` / `./stop.sh`  
+Windows: `start.bat` / `stop.bat`
 
-Linux:
+## Building From Source
 
-```bash
-./start.sh
-```
-
-Windows:
-
-```bat
-start.bat
-```
-
-5. Stop bot:
-
-```bash
-./stop.command
-```
-
-Linux:
-
-```bash
-./stop.sh
-```
-
-Windows:
-
-```bat
-stop.bat
-```
-
-## Release Packages
-
-To build downloadable release zips for macOS, Linux, and Windows:
+To build release ZIPs for all platforms:
 
 ```bash
 ./build-release-packages.sh
 ```
 
-This creates zip files in `dist/releases/` that you can upload to the GitHub release page as assets.
+Output goes to `dist/releases/`. Native installers (`.dmg`, `.exe`) are built by the GitHub Actions release workflow.
 
 Version naming behavior:
 
-- Uses `RELEASE_VERSION` when provided.
-- In GitHub release workflow, tag name is used automatically (for example `v1.0.1` -> `1.0.1`).
-- Falls back to Maven `project.version` when no tag/env version is provided.
+- Uses `RELEASE_VERSION` env var when provided.
+- Uses the Git tag name automatically in the release workflow (e.g. `v1.1.0` → `1.1.0`).
+- Falls back to Maven `project.version` otherwise.
 
-Current packaged targets:
+Packaged targets:
 
-- macOS
-- Linux x86-64
-- Linux ARM64
-- Windows x86-64
-
-GitHub tag releases (`v*`) also build native desktop installers:
-
-- Windows installer (`.exe`) with Start Menu and desktop shortcut options.
-- macOS installer (`.dmg`) that installs a regular `.app`.
-
-Both desktop installers launch the built-in Control Panel GUI (not the headless CLI entrypoint).
-
-Linux remains distributed as zip packages with shell launch scripts.
+- macOS (ZIP + `.dmg` installer)
+- Linux x86-64 (ZIP)
+- Linux ARM64 (ZIP)
+- Windows x86-64 (ZIP + `.exe` installer)
 
 ## Commands
 
