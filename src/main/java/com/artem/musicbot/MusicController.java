@@ -48,6 +48,8 @@ public class MusicController {
     private final AtomicLong loadSuccessCount = new AtomicLong();
     private final AtomicLong loadFailureCount = new AtomicLong();
     private final AtomicLong noMatchesCount = new AtomicLong();
+    private final AtomicLong searchSelectionCounter = new AtomicLong();
+    private final Map<String, PendingSearch> pendingSearches = new ConcurrentHashMap<>();
 
     public MusicController(BotConfig config, I18n i18n, GuildSettingsStore settingsStore) {
         this.i18n = i18n;
@@ -100,6 +102,11 @@ public class MusicController {
 
             @Override
             public void playlistLoaded(AudioPlaylist playlist) {
+                if (isSearchIdentifier(resolvedIdentifier)) {
+                    presentSearchChoices(channel, member, identifier, playlist, musicManager);
+                    return;
+                }
+
                 AudioTrack track = playlist.getSelectedTrack();
                 if (track == null && !playlist.getTracks().isEmpty()) {
                     track = playlist.getTracks().get(0);
@@ -131,6 +138,46 @@ public class MusicController {
                 disconnectIfIdle(channel, musicManager);
             }
         });
+    }
+
+    public SearchSelectionOutcome chooseSearchResult(TextChannel channel, Member member, String selectionId, int index) {
+        PendingSearch pendingSearch = pendingSearches.get(selectionId);
+        if (pendingSearch == null) {
+            return SearchSelectionOutcome.error("This search selection expired.");
+        }
+
+        if (!canUsePendingSearch(member, pendingSearch)) {
+            return SearchSelectionOutcome.error("Only the user who started this search can choose a result.");
+        }
+
+        if (index < 0 || index >= pendingSearch.tracks().size()) {
+            return SearchSelectionOutcome.error("Invalid search result selection.");
+        }
+
+        AudioTrack track = pendingSearch.tracks().get(index).makeClone();
+        pendingSearches.remove(selectionId);
+
+        GuildMusicManager musicManager = getGuildMusicManager(channel.getGuild());
+        musicManager.scheduler.queue(track);
+        lastTrackQueries.put(channel.getGuild().getIdLong(), track.getInfo().title);
+        loadSuccessCount.incrementAndGet();
+        channel.sendMessage("Queued: " + track.getInfo().title).queue();
+        return SearchSelectionOutcome.success("Selected: " + track.getInfo().title);
+    }
+
+    public SearchSelectionOutcome cancelSearchSelection(TextChannel channel, Member member, String selectionId) {
+        PendingSearch pendingSearch = pendingSearches.get(selectionId);
+        if (pendingSearch == null) {
+            return SearchSelectionOutcome.error("This search selection already expired.");
+        }
+
+        if (!canUsePendingSearch(member, pendingSearch)) {
+            return SearchSelectionOutcome.error("Only the user who started this search can cancel it.");
+        }
+
+        pendingSearches.remove(selectionId);
+        disconnectIfIdle(channel, getGuildMusicManager(channel.getGuild()));
+        return SearchSelectionOutcome.success("Search cancelled.");
     }
 
     public MetricsSnapshot metricsSnapshot() {
@@ -670,6 +717,44 @@ public class MusicController {
                 "Suggestion: " + advice);
     }
 
+    private void presentSearchChoices(TextChannel channel, Member member, String query, AudioPlaylist playlist, GuildMusicManager musicManager) {
+        List<AudioTrack> topTracks = playlist.getTracks().stream()
+                .limit(3)
+                .map(AudioTrack::makeClone)
+                .toList();
+
+        if (topTracks.isEmpty()) {
+            channel.sendMessage("Nothing found for: " + query).queue();
+            disconnectIfIdle(channel, musicManager);
+            return;
+        }
+
+        String selectionId = Long.toString(searchSelectionCounter.incrementAndGet(), 36);
+        long requesterId = member == null ? 0L : member.getIdLong();
+        pendingSearches.put(selectionId, new PendingSearch(requesterId, topTracks));
+
+        StringBuilder builder = new StringBuilder("Search results for: ").append(query).append('\n');
+        for (int index = 0; index < topTracks.size(); index++) {
+            builder.append(index + 1).append(". ").append(topTracks.get(index).getInfo().title).append('\n');
+        }
+        builder.append("Choose a result below.");
+
+        List<Button> buttons = List.of(
+                Button.primary("searchpick:" + selectionId + ":0", "1"),
+                Button.primary("searchpick:" + selectionId + ":1", "2").withDisabled(topTracks.size() < 2),
+                Button.primary("searchpick:" + selectionId + ":2", "3").withDisabled(topTracks.size() < 3),
+                Button.danger("searchcancel:" + selectionId, "Cancel")
+        );
+
+        channel.sendMessage(builder.toString())
+                .setComponents(ActionRow.of(buttons))
+                .queue();
+    }
+
+    private boolean canUsePendingSearch(Member member, PendingSearch pendingSearch) {
+        return pendingSearch.requesterId() == 0L || (member != null && member.getIdLong() == pendingSearch.requesterId());
+    }
+
     private String normalizeIdentifier(String identifier) {
         String trimmed = identifier == null ? "" : identifier.trim();
         if (trimmed.isEmpty()) {
@@ -689,6 +774,11 @@ public class MusicController {
         return "ytsearch:" + trimmed;
     }
 
+    private boolean isSearchIdentifier(String identifier) {
+        String lower = identifier == null ? "" : identifier.toLowerCase();
+        return lower.startsWith("ytsearch:") || lower.startsWith("ytmsearch:") || lower.startsWith("scsearch:");
+    }
+
     private void disconnectIfIdle(TextChannel channel, GuildMusicManager musicManager) {
         if (musicManager.player.getPlayingTrack() == null && musicManager.scheduler.getQueue().isEmpty()) {
             channel.getGuild().getAudioManager().closeAudioConnection();
@@ -705,5 +795,18 @@ public class MusicController {
             long loadFailures,
             long noMatches
     ) {
+    }
+
+    private record PendingSearch(long requesterId, List<AudioTrack> tracks) {
+    }
+
+    public record SearchSelectionOutcome(boolean success, String message) {
+        public static SearchSelectionOutcome success(String message) {
+            return new SearchSelectionOutcome(true, message);
+        }
+
+        public static SearchSelectionOutcome error(String message) {
+            return new SearchSelectionOutcome(false, message);
+        }
     }
 }

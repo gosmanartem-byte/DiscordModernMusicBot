@@ -300,7 +300,7 @@ public class CommandListener extends ListenerAdapter {
     @Override
     public void onButtonInteraction(ButtonInteractionEvent event) {
         Guild guild = event.getGuild();
-        if (!event.isFromGuild() || guild == null || !event.getComponentId().startsWith("player:")) {
+        if (!event.isFromGuild() || guild == null) {
             return;
         }
 
@@ -311,6 +311,50 @@ public class CommandListener extends ListenerAdapter {
 
         GuildSettings settings = settingsStore.get(guild.getIdLong());
         if (!canUseButtonCommands(event, channel, event.getMember(), settings)) {
+            return;
+        }
+
+        if (event.getComponentId().startsWith("searchpick:")) {
+            String[] parts = event.getComponentId().split(":");
+            if (parts.length != 3) {
+                event.reply("Invalid search selection.").setEphemeral(true).queue();
+                return;
+            }
+
+            Integer index = parseInt(parts[2]);
+            if (index == null) {
+                event.reply("Invalid search selection.").setEphemeral(true).queue();
+                return;
+            }
+
+            MusicController.SearchSelectionOutcome outcome = musicController.chooseSearchResult(channel, event.getMember(), parts[1], index);
+            if (!outcome.success()) {
+                event.reply(outcome.message()).setEphemeral(true).queue();
+                return;
+            }
+
+            event.editMessage(outcome.message()).setComponents().queue();
+            return;
+        }
+
+        if (event.getComponentId().startsWith("searchcancel:")) {
+            String[] parts = event.getComponentId().split(":");
+            if (parts.length != 2) {
+                event.reply("Invalid search selection.").setEphemeral(true).queue();
+                return;
+            }
+
+            MusicController.SearchSelectionOutcome outcome = musicController.cancelSearchSelection(channel, event.getMember(), parts[1]);
+            if (!outcome.success()) {
+                event.reply(outcome.message()).setEphemeral(true).queue();
+                return;
+            }
+
+            event.editMessage(outcome.message()).setComponents().queue();
+            return;
+        }
+
+        if (!event.getComponentId().startsWith("player:")) {
             return;
         }
 
