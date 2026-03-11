@@ -1,1 +1,71 @@
 # DiscordModernMusicBot
+
+Modern Java Discord music bot built with JDA, Lavaplayer, youtube-source, and JDave voice encryption support.
+
+## Features
+
+- Plays music from URL or search query
+- Queue management (`play`, `skip`, `stop`, `leave`)
+- Audio controls (`volume`, `bass`, `loud`, `normal`)
+- Debug command for audio diagnostics (`debugaudio`)
+- macOS launcher scripts (`start.command`, `stop.command`)
+
+## Requirements
+
+- Java 25
+- Maven 3.9+
+- Discord bot token
+- macOS (launcher scripts are macOS-first)
+
+## Quick Start
+
+1. Clone this repository.
+2. In project root, copy config template:
+
+```bash
+cp ModernMusicBot.properties.example ModernMusicBot.properties
+```
+
+3. Open `ModernMusicBot.properties` and set your token:
+
+```properties
+bot.token=YOUR_DISCORD_BOT_TOKEN
+bot.prefix=!
+```
+
+4. Start bot:
+
+```bash
+./start.command
+```
+
+5. Stop bot:
+
+```bash
+./stop.command
+```
+
+## Commands
+
+- `!play <url or search>`
+- `!skip`
+- `!stop`
+- `!leave`
+- `!volume`
+- `!volume <0-200>`
+- `!bass`
+- `!bass <0-5>`
+- `!loud`
+- `!normal`
+- `!queue`
+- `!debugaudio`
+- `!help`
+
+## Security
+
+- Never commit `ModernMusicBot.properties` with a real token.
+- If a token is exposed, rotate it immediately in Discord Developer Portal.
+
+## More Details
+
+See `README_INSTALLATION.md` for full installation and Discord app setup steps.
