@@ -165,6 +165,8 @@ GitHub tag releases (`v*`) also build native desktop installers:
 - Windows installer (`.exe`) with Start Menu and desktop shortcut options.
 - macOS installer (`.dmg`) that installs a regular `.app`.
 
+Both desktop installers launch the built-in Control Panel GUI (not the headless CLI entrypoint).
+
 Linux remains distributed as zip packages with shell launch scripts.
 
 ## Commands

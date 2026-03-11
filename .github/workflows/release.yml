@@ -83,7 +83,7 @@ jobs:
             --name ModernMusicBot `
             --input dist/jpackage/input `
             --main-jar DiscordModernMusicBot.jar `
-            --main-class com.artem.musicbot.ModernMusicBot `
+            --main-class com.artem.musicbot.ControlPanelApp `
             --dest dist/releases `
             --app-version $version `
             --vendor "DiscordModernMusicBot" `
@@ -149,7 +149,7 @@ jobs:
             --name ModernMusicBot \
             --input dist/jpackage/input \
             --main-jar DiscordModernMusicBot.jar \
-            --main-class com.artem.musicbot.ModernMusicBot \
+            --main-class com.artem.musicbot.ControlPanelApp \
             --dest dist/releases \
             --app-version "$VERSION" \
             --vendor "DiscordModernMusicBot" \
