@@ -69,6 +69,7 @@ mkdir -p "$DIST_DIR" "$STAGING_DIR"
 
 build_package "macos" "macos" "DiscordModernMusicBot-v${VERSION}-macos"
 build_package "linux-x86-64" "linux" "DiscordModernMusicBot-v${VERSION}-linux-x86-64"
+build_package "linux-aarch64" "linux" "DiscordModernMusicBot-v${VERSION}-linux-aarch64"
 build_package "windows-x86-64" "windows" "DiscordModernMusicBot-v${VERSION}-windows-x86-64"
 
 echo

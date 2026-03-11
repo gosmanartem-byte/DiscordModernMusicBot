@@ -128,6 +128,20 @@
         </profile>
 
         <profile>
+            <id>linux-aarch64</id>
+            <properties>
+                <release.finalName>${project.artifactId}-${project.version}-linux-aarch64</release.finalName>
+            </properties>
+            <dependencies>
+                <dependency>
+                    <groupId>club.minnced</groupId>
+                    <artifactId>jdave-native-linux-aarch64</artifactId>
+                    <version>${jdave.version}</version>
+                </dependency>
+            </dependencies>
+        </profile>
+
+        <profile>
             <id>windows-x86-64</id>
             <properties>
                 <release.finalName>${project.artifactId}-${project.version}-windows-x86-64</release.finalName>
