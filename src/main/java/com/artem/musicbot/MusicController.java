@@ -61,6 +61,7 @@ public class MusicController {
     private final Map<Long, Long> playerPanelChannelIds = new ConcurrentHashMap<>();
     private final Map<Long, AtomicBoolean> playerPanelRefreshInFlight = new ConcurrentHashMap<>();
     private final Map<Long, AtomicBoolean> playerPanelRefreshPending = new ConcurrentHashMap<>();
+    private final Map<Long, Long> stopCleanupUntilMillis = new ConcurrentHashMap<>();
 
     public MusicController(BotConfig config, I18n i18n, GuildSettingsStore settingsStore) {
         this.i18n = i18n;
@@ -85,6 +86,7 @@ public class MusicController {
     }
 
     public void loadAndPlay(TextChannel channel, Member member, String identifier) {
+        stopCleanupUntilMillis.remove(channel.getGuild().getIdLong());
         String resolvedIdentifier = normalizeIdentifier(identifier);
         lastTextChannels.put(channel.getGuild().getIdLong(), channel);
         VoiceChannel voiceChannel = getUserVoiceChannel(member);
@@ -297,6 +299,8 @@ public class MusicController {
     }
 
     public void stop(TextChannel channel) {
+        long guildId = channel.getGuild().getIdLong();
+        stopCleanupUntilMillis.put(guildId, System.currentTimeMillis() + 10_000L);
         clearPersistentPlayerPanel(channel.getGuild());
         GuildMusicManager musicManager = getGuildMusicManager(channel.getGuild());
         musicManager.scheduler.stop();
@@ -305,6 +309,7 @@ public class MusicController {
         cleanupRecentChat(channel);
         // Run a second pass shortly after stop to catch straggler messages posted asynchronously.
         CompletableFuture.delayedExecutor(1, TimeUnit.SECONDS).execute(() -> cleanupRecentChat(channel));
+        CompletableFuture.delayedExecutor(3, TimeUnit.SECONDS).execute(() -> cleanupRecentChat(channel));
     }
 
     public void setVolume(TextChannel channel, int volume) {
@@ -892,6 +897,10 @@ public class MusicController {
             return;
         }
 
+        if (isStopCleanupActive(guild.getIdLong())) {
+            return;
+        }
+
         GuildSettings settings = settingsStore.get(guild.getIdLong());
         if (!settings.autoplay()) {
             return;
@@ -907,6 +916,9 @@ public class MusicController {
         playerManager.loadItemOrdered(musicManager, query, new AudioLoadResultHandler() {
             @Override
             public void trackLoaded(AudioTrack track) {
+                if (isStopCleanupActive(guild.getIdLong())) {
+                    return;
+                }
                 musicManager.scheduler.queue(track);
                 lastTrackQueries.put(guild.getIdLong(), track.getInfo().title);
                 announceChannel.sendMessage("Autoplay queued: " + track.getInfo().title).queue();
@@ -919,6 +931,9 @@ public class MusicController {
                     selected = playlist.getTracks().get(0);
                 }
                 if (selected != null) {
+                    if (isStopCleanupActive(guild.getIdLong())) {
+                        return;
+                    }
                     musicManager.scheduler.queue(selected);
                     lastTrackQueries.put(guild.getIdLong(), selected.getInfo().title);
                     announceChannel.sendMessage("Autoplay queued: " + selected.getInfo().title).queue();
@@ -933,6 +948,20 @@ public class MusicController {
             public void loadFailed(FriendlyException exception) {
             }
         });
+    }
+
+    private boolean isStopCleanupActive(long guildId) {
+        Long until = stopCleanupUntilMillis.get(guildId);
+        if (until == null) {
+            return false;
+        }
+
+        if (System.currentTimeMillis() < until) {
+            return true;
+        }
+
+        stopCleanupUntilMillis.remove(guildId);
+        return false;
     }
 
     private GuildMusicManager musicManagerRef(Guild guild) {
