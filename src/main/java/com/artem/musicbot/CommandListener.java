@@ -3,7 +3,6 @@ package com.artem.musicbot;
 import java.util.Locale;
 
 import net.dv8tion.jda.api.Permission;
-import net.dv8tion.jda.api.components.buttons.Button;
 import net.dv8tion.jda.api.entities.Guild;
 import net.dv8tion.jda.api.entities.Member;
 import net.dv8tion.jda.api.entities.Role;
@@ -20,13 +19,11 @@ import net.dv8tion.jda.api.interactions.commands.build.Commands;
 public class CommandListener extends ListenerAdapter {
     private final String defaultPrefix;
     private final MusicController musicController;
-    private final I18n i18n;
     private final GuildSettingsStore settingsStore;
 
     public CommandListener(String defaultPrefix, MusicController musicController, I18n i18n, GuildSettingsStore settingsStore) {
         this.defaultPrefix = defaultPrefix;
         this.musicController = musicController;
-        this.i18n = i18n;
         this.settingsStore = settingsStore;
     }
 
@@ -63,7 +60,8 @@ public class CommandListener extends ListenerAdapter {
                                 .addOption(OptionType.STRING, "language", "Language code or name", true),
                         Commands.slash("setdj", "Set DJ role (admins always allowed)")
                                 .addOption(OptionType.ROLE, "role", "Role to require for DJ commands", true),
-                        Commands.slash("health", "Show runtime health summary")
+                        Commands.slash("health", "Show runtime health summary"),
+                        Commands.slash("debugaudio", "Show audio debug details")
                 )
                 .queue();
     }
@@ -160,6 +158,7 @@ public class CommandListener extends ListenerAdapter {
                 }
             }
             case "player", "panel" -> musicController.sendPlayerPanel(channel, prefix);
+            case "debugaudio" -> musicController.debugAudio(channel);
             case "setprefix" -> doAdminChecked(channel, event.getMember(), () -> setPrefix(channel, argument, settings));
             case "setlang" -> doAdminChecked(channel, event.getMember(), () -> setLanguage(channel, argument, settings));
             case "setdj" -> channel.sendMessage("Use slash command /setdj to select a role.").queue();
@@ -173,11 +172,12 @@ public class CommandListener extends ListenerAdapter {
 
     @Override
     public void onSlashCommandInteraction(SlashCommandInteractionEvent event) {
-        if (!event.isFromGuild() || !(event.getChannel() instanceof TextChannel channel)) {
+        Guild guild = event.getGuild();
+        if (!event.isFromGuild() || guild == null || !(event.getChannel() instanceof TextChannel channel)) {
             return;
         }
 
-        GuildSettings settings = settingsStore.get(event.getGuild().getIdLong());
+        GuildSettings settings = settingsStore.get(guild.getIdLong());
         Member member = event.getMember();
         String prefix = settings.prefix();
 
@@ -217,7 +217,7 @@ public class CommandListener extends ListenerAdapter {
             case "setdj" -> runAdminSlash(event, member, () -> {
                 Role role = event.getOption("role", null, OptionMapping::getAsRole);
                 if (role == null) {
-                    channel.sendMessage("Role is required.").queue();
+                    event.reply("Role is required.").setEphemeral(true).queue();
                     return;
                 }
                 GuildSettings next = new GuildSettings(settings.guildId(), settings.prefix(), settings.language(), role.getIdLong(), settings.defaultVolume(), settings.autoplay());
@@ -225,16 +225,20 @@ public class CommandListener extends ListenerAdapter {
                 channel.sendMessage("DJ role set to @" + role.getName()).queue();
             });
             case "health" -> channel.sendMessage(musicController.healthSummary()).queue();
+            case "debugaudio" -> musicController.debugAudio(channel);
             default -> {
             }
         }
 
-        event.reply("Done.").setEphemeral(true).queue();
+        if (!event.isAcknowledged()) {
+            event.reply("Done.").setEphemeral(true).queue();
+        }
     }
 
     @Override
     public void onButtonInteraction(ButtonInteractionEvent event) {
-        if (!event.isFromGuild() || !event.getComponentId().startsWith("player:")) {
+        Guild guild = event.getGuild();
+        if (!event.isFromGuild() || guild == null || !event.getComponentId().startsWith("player:")) {
             return;
         }
 
@@ -243,7 +247,7 @@ public class CommandListener extends ListenerAdapter {
             return;
         }
 
-        GuildSettings settings = settingsStore.get(event.getGuild().getIdLong());
+        GuildSettings settings = settingsStore.get(guild.getIdLong());
         switch (event.getComponentId()) {
             case "player:pause" -> doDjChecked(channel, event.getMember(), settings, () -> musicController.pause(channel));
             case "player:resume" -> doDjChecked(channel, event.getMember(), settings, () -> musicController.resume(channel));
@@ -307,6 +311,7 @@ public class CommandListener extends ListenerAdapter {
 
     private void runDjSlash(SlashCommandInteractionEvent event, Member member, GuildSettings settings, Runnable action) {
         if (!hasDjPermission(member, settings)) {
+            event.reply("You need the DJ role (or admin rights) for this command.").setEphemeral(true).queue();
             return;
         }
         action.run();
@@ -322,6 +327,7 @@ public class CommandListener extends ListenerAdapter {
 
     private void runAdminSlash(SlashCommandInteractionEvent event, Member member, Runnable action) {
         if (member == null || !(member.hasPermission(Permission.MANAGE_SERVER) || member.hasPermission(Permission.ADMINISTRATOR))) {
+            event.reply("Admin permission required.").setEphemeral(true).queue();
             return;
         }
         action.run();

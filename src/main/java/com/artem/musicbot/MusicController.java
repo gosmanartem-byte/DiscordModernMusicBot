@@ -1,7 +1,6 @@
 package com.artem.musicbot;
 
 import java.awt.Color;
-import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
@@ -352,9 +351,10 @@ public class MusicController {
         long provided = musicManager.sendHandler.getProvidedFrames();
         long calls = musicManager.sendHandler.getProvideCalls();
         long lastFrameMs = musicManager.sendHandler.getMillisSinceLastFrame();
-        String connectedChannel = audioManager.getConnectedChannel() == null
+        var connectedChannelRef = audioManager.getConnectedChannel();
+        String connectedChannel = connectedChannelRef == null
             ? "none"
-            : audioManager.getConnectedChannel().getName() + " (" + audioManager.getConnectedChannel().getType() + ")";
+            : connectedChannelRef.getName() + " (" + connectedChannelRef.getType() + ")";
 
         boolean guildMuted = selfVoiceState != null && selfVoiceState.isGuildMuted();
         boolean muted = selfVoiceState != null && selfVoiceState.isMuted();
