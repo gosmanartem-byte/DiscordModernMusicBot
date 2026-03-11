@@ -22,6 +22,12 @@ fi
 export JAVA_HOME="$JAVA25_HOME"
 export PATH="$JAVA_HOME/bin:$PATH"
 mvn -q -DskipTests package
+JAR_PATH=$(find target -maxdepth 1 -name '*-jar-with-dependencies.jar' | head -n 1)
+if [[ -z "$JAR_PATH" ]]; then
+  echo "Built jar not found in target/"
+  read -r "reply?Press Enter to close..."
+  exit 1
+fi
 echo "Using config: $CONFIG_FILE"
-"$JAVA_HOME/bin/java" --enable-native-access=ALL-UNNAMED -jar target/modern-bot-1.0.0-jar-with-dependencies.jar "$CONFIG_FILE"
+"$JAVA_HOME/bin/java" --enable-native-access=ALL-UNNAMED -jar "$JAR_PATH" "$CONFIG_FILE"
 read -r "reply?Bot stopped. Press Enter to close..."

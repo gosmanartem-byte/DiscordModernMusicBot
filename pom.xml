@@ -16,6 +16,7 @@
         <youtube.source.version>1.18.0</youtube.source.version>
         <jdave.version>0.1.7</jdave.version>
         <slf4j.version>2.0.17</slf4j.version>
+        <release.finalName>${project.artifactId}-${project.version}</release.finalName>
     </properties>
 
     <repositories>
@@ -47,11 +48,6 @@
             <version>${jdave.version}</version>
         </dependency>
         <dependency>
-            <groupId>club.minnced</groupId>
-            <artifactId>jdave-native-darwin</artifactId>
-            <version>${jdave.version}</version>
-        </dependency>
-        <dependency>
             <groupId>org.slf4j</groupId>
             <artifactId>slf4j-simple</artifactId>
             <version>${slf4j.version}</version>
@@ -59,6 +55,7 @@
     </dependencies>
 
     <build>
+        <finalName>${release.finalName}</finalName>
         <plugins>
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
@@ -97,4 +94,51 @@
             </plugin>
         </plugins>
     </build>
+
+    <profiles>
+        <profile>
+            <id>macos</id>
+            <activation>
+                <activeByDefault>true</activeByDefault>
+            </activation>
+            <properties>
+                <release.finalName>${project.artifactId}-${project.version}-macos</release.finalName>
+            </properties>
+            <dependencies>
+                <dependency>
+                    <groupId>club.minnced</groupId>
+                    <artifactId>jdave-native-darwin</artifactId>
+                    <version>${jdave.version}</version>
+                </dependency>
+            </dependencies>
+        </profile>
+
+        <profile>
+            <id>linux-x86-64</id>
+            <properties>
+                <release.finalName>${project.artifactId}-${project.version}-linux-x86-64</release.finalName>
+            </properties>
+            <dependencies>
+                <dependency>
+                    <groupId>club.minnced</groupId>
+                    <artifactId>jdave-native-linux-x86-64</artifactId>
+                    <version>${jdave.version}</version>
+                </dependency>
+            </dependencies>
+        </profile>
+
+        <profile>
+            <id>windows-x86-64</id>
+            <properties>
+                <release.finalName>${project.artifactId}-${project.version}-windows-x86-64</release.finalName>
+            </properties>
+            <dependencies>
+                <dependency>
+                    <groupId>club.minnced</groupId>
+                    <artifactId>jdave-native-win-x86-64</artifactId>
+                    <version>${jdave.version}</version>
+                </dependency>
+            </dependencies>
+        </profile>
+    </profiles>
 </project>

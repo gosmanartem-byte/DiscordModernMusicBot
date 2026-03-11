@@ -51,6 +51,16 @@ bot.prefix=!
 ./stop.command
 ```
 
+## Release Packages
+
+To build downloadable release zips for macOS, Linux, and Windows:
+
+```bash
+./build-release-packages.sh
+```
+
+This creates zip files in `dist/releases/` that you can upload to the GitHub release page as assets.
+
 ## Commands
 
 - `!play <url or search>`
