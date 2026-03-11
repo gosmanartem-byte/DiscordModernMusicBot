@@ -34,6 +34,12 @@ Modern Java Discord music bot built with JDA, Lavaplayer, youtube-source, and JD
 
 > Windows ARM is not supported.
 
+## Which Version Should I Use?
+
+**v1.1.0 (this release)** is recommended for everyone. It's a proper desktop app with native installers — no Java setup, no terminal.
+
+**v1.0.0** is there if you need the raw, script-only version — for example, if you're running the bot headlessly on a server, deploying via Docker/CI, or just prefer full manual control with no bundled runtime. You can find it on the [Releases](../../releases) page.
+
 ## Getting Started (Recommended — Native Installer)
 
 ### Step 1: Create a Discord Bot Token
