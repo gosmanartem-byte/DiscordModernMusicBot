@@ -72,6 +72,7 @@ public class MusicController {
     }
 
     public void loadAndPlay(TextChannel channel, Member member, String identifier) {
+        String resolvedIdentifier = normalizeIdentifier(identifier);
         lastTextChannels.put(channel.getGuild().getIdLong(), channel);
         VoiceChannel voiceChannel = getUserVoiceChannel(member);
         if (voiceChannel == null) {
@@ -88,7 +89,7 @@ public class MusicController {
         }
 
         channel.sendMessage("Loading: " + identifier).queue();
-        playerManager.loadItemOrdered(musicManager, identifier, new AudioLoadResultHandler() {
+        playerManager.loadItemOrdered(musicManager, resolvedIdentifier, new AudioLoadResultHandler() {
             @Override
             public void trackLoaded(AudioTrack track) {
                 musicManager.scheduler.queue(track);
@@ -667,6 +668,25 @@ public class MusicController {
                 reason,
                 "Details: " + message,
                 "Suggestion: " + advice);
+    }
+
+    private String normalizeIdentifier(String identifier) {
+        String trimmed = identifier == null ? "" : identifier.trim();
+        if (trimmed.isEmpty()) {
+            return trimmed;
+        }
+
+        String lower = trimmed.toLowerCase();
+        if (lower.startsWith("http://")
+                || lower.startsWith("https://")
+                || lower.startsWith("www.")
+                || lower.startsWith("ytsearch:")
+                || lower.startsWith("ytmsearch:")
+                || lower.startsWith("scsearch:")) {
+            return trimmed;
+        }
+
+        return "ytsearch:" + trimmed;
     }
 
     private void disconnectIfIdle(TextChannel channel, GuildMusicManager musicManager) {
