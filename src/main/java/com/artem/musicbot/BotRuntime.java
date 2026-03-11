@@ -2,8 +2,8 @@ package com.artem.musicbot;
 
 import java.nio.file.Path;
 import java.time.Instant;
-import java.util.List;
 import java.util.EnumSet;
+import java.util.List;
 import java.util.function.Consumer;
 
 import club.minnced.discord.jdave.interop.JDaveSessionFactory;
@@ -171,6 +171,20 @@ public class BotRuntime {
                 "Track: " + metrics.nowPlayingTitle(),
                 "Queued tracks: " + metrics.queuedTracks(),
                 "Active players: " + metrics.activePlayers());
+    }
+
+    public synchronized String playerSummaryForGuild(long guildId) {
+        if (musicController == null) {
+            return "Bot is not running.";
+        }
+        return musicController.desktopPlayerSummary(guildId);
+    }
+
+    public synchronized long preferredTextChannelId(long guildId) {
+        if (musicController == null) {
+            return 0L;
+        }
+        return musicController.preferredTextChannelId(guildId);
     }
 
     private TextChannel requireTextChannel(long guildId, long channelId) {

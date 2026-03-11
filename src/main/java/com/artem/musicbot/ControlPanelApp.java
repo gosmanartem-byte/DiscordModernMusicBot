@@ -231,6 +231,7 @@ public class ControlPanelApp {
 
         if (isDesktopOnboardingEnabled()) {
             guildCombo.addActionListener(ignored -> refreshChannelsAsync());
+            guildCombo.addActionListener(ignored -> refreshPlayerSummaryAsync());
 
             addSongButton.addActionListener(ignored -> worker.submit(() -> {
                 Long guildId = selectedGuildId();
@@ -387,6 +388,7 @@ public class ControlPanelApp {
 
         worker.submit(() -> {
             List<BotRuntime.ChannelRef> channels = runtime.textChannelRefs(guildId);
+            long preferredChannelId = runtime.preferredTextChannelId(guildId);
             SwingUtilities.invokeLater(() -> {
                 ChannelOption selected = (ChannelOption) channelCombo.getSelectedItem();
                 channelCombo.removeAllItems();
@@ -395,6 +397,10 @@ public class ControlPanelApp {
                 }
                 if (selected != null) {
                     selectChannelById(selected.id());
+                } else if (preferredChannelId != 0L) {
+                    selectChannelById(preferredChannelId);
+                } else if (channelCombo.getItemCount() > 0) {
+                    channelCombo.setSelectedIndex(0);
                 }
             });
         });
@@ -405,7 +411,8 @@ public class ControlPanelApp {
             return;
         }
         worker.submit(() -> {
-            String summary = runtime.playerSummary();
+            Long guildId = selectedGuildId();
+            String summary = guildId == null ? runtime.playerSummary() : runtime.playerSummaryForGuild(guildId);
             SwingUtilities.invokeLater(() -> playerSummaryArea.setText(summary));
         });
     }

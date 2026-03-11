@@ -316,6 +316,47 @@ public class MusicController {
         );
     }
 
+    public long preferredTextChannelId(long guildId) {
+        Long trackedChannel = playerPanelChannelIds.get(guildId);
+        if (trackedChannel != null) {
+            return trackedChannel;
+        }
+        TextChannel last = lastTextChannels.get(guildId);
+        return last == null ? 0L : last.getIdLong();
+    }
+
+    public String desktopPlayerSummary(long guildId) {
+        GuildMusicManager manager = musicManagers.get(guildId);
+        if (manager == null) {
+            return "State: idle\nTrack: none\nQueue: empty";
+        }
+
+        AudioTrack current = manager.player.getPlayingTrack();
+        String state = current == null ? "idle" : (manager.player.isPaused() ? "paused" : "playing");
+        String track = current == null ? "none" : current.getInfo().title;
+
+        StringBuilder summary = new StringBuilder()
+                .append("State: ").append(state)
+                .append("\nTrack: ").append(track)
+                .append("\nQueue:\n");
+
+        if (manager.scheduler.getQueue().isEmpty()) {
+            summary.append("(empty)");
+            return summary.toString();
+        }
+
+        int index = 1;
+        for (AudioTrack queued : manager.scheduler.getQueue()) {
+            summary.append(index++).append(". ").append(queued.getInfo().title).append('\n');
+            if (index > 8) {
+                summary.append("...");
+                break;
+            }
+        }
+
+        return summary.toString().trim();
+    }
+
     public void skip(TextChannel channel) {
         GuildMusicManager musicManager = getGuildMusicManager(channel.getGuild());
         AudioTrack next = musicManager.scheduler.skip();
