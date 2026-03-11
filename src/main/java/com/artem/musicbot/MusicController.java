@@ -561,21 +561,17 @@ public class MusicController {
     private String buildTrackValue(AudioTrack current) {
         long position = current.getPosition();
         long duration = current.getDuration();
+        long now = System.currentTimeMillis();
+        long startedEpoch = Math.max(0L, (now - position) / 1000L);
 
         StringBuilder value = new StringBuilder(current.getInfo().title)
                 .append("\n`")
-                .append(formatDuration(position))
-                .append(" / ")
-                .append(formatDuration(duration))
+            .append("Played: <t:")
+            .append(startedEpoch)
+            .append(":R>")
+            .append(" / ")
+            .append(formatDuration(duration))
                 .append("`");
-
-        if (duration > 0) {
-            long now = System.currentTimeMillis();
-            long startedEpoch = Math.max(0L, (now - position) / 1000L);
-            long endsEpoch = Math.max(startedEpoch, (now + Math.max(0L, duration - position)) / 1000L);
-            value.append("\nStarted: <t:").append(startedEpoch).append(":R>")
-                    .append(" | Ends: <t:").append(endsEpoch).append(":R>");
-        }
 
         return value.toString();
     }
