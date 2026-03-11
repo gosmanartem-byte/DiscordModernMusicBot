@@ -85,7 +85,7 @@ Please avoid committing secrets, local config files, or generated artifacts.
 
 ## License
 
-No license file is provided yet. Until a license is added, all rights are reserved by default.
+This project is licensed under the MIT License. See `LICENSE`.
 
 ## More Details
 
