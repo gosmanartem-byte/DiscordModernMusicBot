@@ -1,16 +1,18 @@
 package com.artem.musicbot;
 
-import com.sedmelluq.discord.lavaplayer.player.AudioPlayer;
-import com.sedmelluq.discord.lavaplayer.track.playback.AudioFrame;
-import net.dv8tion.jda.api.audio.AudioSendHandler;
-
 import java.nio.Buffer;
 import java.nio.ByteBuffer;
 import java.util.concurrent.atomic.AtomicLong;
 
+import com.sedmelluq.discord.lavaplayer.player.AudioPlayer;
+import com.sedmelluq.discord.lavaplayer.track.playback.MutableAudioFrame;
+
+import net.dv8tion.jda.api.audio.AudioSendHandler;
+
 public class AudioPlayerSendHandler implements AudioSendHandler {
     private final AudioPlayer audioPlayer;
     private final ByteBuffer buffer;
+    private final MutableAudioFrame mutableFrame;
     private final AtomicLong providedFrames = new AtomicLong();
     private final AtomicLong provideCalls = new AtomicLong();
     private volatile long lastFrameNanos = 0L;
@@ -19,24 +21,25 @@ public class AudioPlayerSendHandler implements AudioSendHandler {
 
     public AudioPlayerSendHandler(AudioPlayer audioPlayer) {
         this.audioPlayer = audioPlayer;
-        this.buffer = ByteBuffer.allocate(1024);
+        this.buffer = ByteBuffer.allocate(2048);
+        this.mutableFrame = new MutableAudioFrame();
+        this.mutableFrame.setBuffer(buffer);
     }
 
     @Override
     public boolean canProvide() {
         provideCalls.incrementAndGet();
-        AudioFrame frame = audioPlayer.provide();
-        if (frame == null) {
+        ((Buffer) buffer).clear();
+        boolean provided = audioPlayer.provide(mutableFrame);
+        if (!provided) {
             return false;
         }
 
-        ((Buffer) buffer).clear();
-        buffer.put(frame.getData());
         ((Buffer) buffer).flip();
         providedFrames.incrementAndGet();
         lastFrameNanos = System.nanoTime();
-        lastCodecName = frame.getFormat().codecName();
-        lastDataLength = frame.getDataLength();
+        lastCodecName = mutableFrame.getFormat() == null ? "n/a" : mutableFrame.getFormat().codecName();
+        lastDataLength = buffer.remaining();
         return true;
     }
 
