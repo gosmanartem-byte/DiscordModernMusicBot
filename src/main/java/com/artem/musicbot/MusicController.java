@@ -6,7 +6,9 @@ import java.time.ZoneOffset;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicLong;
 
@@ -301,6 +303,8 @@ public class MusicController {
         channel.getGuild().getAudioManager().closeAudioConnection();
         updatePresence(channel.getGuild());
         cleanupRecentChat(channel);
+        // Run a second pass shortly after stop to catch straggler messages posted asynchronously.
+        CompletableFuture.delayedExecutor(1, TimeUnit.SECONDS).execute(() -> cleanupRecentChat(channel));
     }
 
     public void setVolume(TextChannel channel, int volume) {
