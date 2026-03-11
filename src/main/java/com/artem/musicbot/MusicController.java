@@ -103,6 +103,7 @@ public class MusicController {
 
                 if (track == null) {
                     channel.sendMessage("Playlist is empty.").queue();
+                    disconnectIfIdle(channel, musicManager);
                     return;
                 }
 
@@ -116,12 +117,14 @@ public class MusicController {
             public void noMatches() {
                 noMatchesCount.incrementAndGet();
                 channel.sendMessage("Nothing found for: " + identifier).queue();
+                disconnectIfIdle(channel, musicManager);
             }
 
             @Override
             public void loadFailed(FriendlyException exception) {
                 loadFailureCount.incrementAndGet();
                 channel.sendMessage(buildLoadFailureMessage(identifier, exception)).queue();
+                disconnectIfIdle(channel, musicManager);
             }
         });
     }
@@ -661,6 +664,14 @@ public class MusicController {
                 reason,
                 "Details: " + message,
                 "Suggestion: " + advice);
+    }
+
+    private void disconnectIfIdle(TextChannel channel, GuildMusicManager musicManager) {
+        if (musicManager.player.getPlayingTrack() == null && musicManager.scheduler.getQueue().isEmpty()) {
+            channel.getGuild().getAudioManager().closeAudioConnection();
+            updatePresence(channel.getGuild());
+            channel.sendMessage("No playable track was loaded, so I left the voice channel.").queue();
+        }
     }
 
     public record MetricsSnapshot(
