@@ -291,12 +291,12 @@ public class MusicController {
     }
 
     public void stop(TextChannel channel) {
+        clearPersistentPlayerPanel(channel.getGuild());
         GuildMusicManager musicManager = getGuildMusicManager(channel.getGuild());
         musicManager.scheduler.stop();
         channel.getGuild().getAudioManager().closeAudioConnection();
         updatePresence(channel.getGuild());
-        channel.sendMessage("Stopped playback and left the voice channel.").queue();
-        refreshPersistentPlayerPanel(channel.getGuild());
+        cleanupRecentChat(channel);
     }
 
     public void setVolume(TextChannel channel, int volume) {
@@ -710,8 +710,7 @@ public class MusicController {
                 return tracked;
             }
         }
-
-        return lastTextChannels.get(guildId);
+        return null;
     }
 
     private void deleteTrackedPlayerPanel(Guild guild, long guildId) {
@@ -734,6 +733,27 @@ public class MusicController {
         );
     }
 
+    private void clearPersistentPlayerPanel(Guild guild) {
+        long guildId = guild.getIdLong();
+        deleteTrackedPlayerPanel(guild, guildId);
+        playerPanelRefreshInFlight.remove(guildId);
+        playerPanelRefreshPending.remove(guildId);
+    }
+
+    private void cleanupRecentChat(TextChannel channel) {
+        // Best-effort cleanup of recent chat clutter after stop.
+        channel.getHistory().retrievePast(100).queue(messages -> messages.forEach(message ->
+                        message.delete().queue(
+                                ignored -> {
+                                },
+                                ignored -> {
+                                }
+                        )),
+                ignored -> {
+                }
+        );
+    }
+
     private List<MessageTopLevelComponent> playerComponents() {
         return List.of(
                 ActionRow.of(
@@ -743,7 +763,6 @@ public class MusicController {
                         Button.danger("player:stop", i18n.t("player.stop"))
                 ),
                 ActionRow.of(
-                        Button.primary("player:queue", i18n.t("player.queue")),
                         Button.secondary("player:voldown", i18n.t("player.voldown")),
                         Button.secondary("player:volup", i18n.t("player.volup")),
                         Button.secondary("player:refresh", i18n.t("player.refresh"))
