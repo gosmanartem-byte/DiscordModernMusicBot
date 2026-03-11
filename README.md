@@ -19,6 +19,7 @@ Simple goal: run a stable Discord music bot locally with one config file and lau
 - DJ/admin permission checks for sensitive commands
 - Configurable bot language (`bot.language`)
 - Debug command for audio diagnostics (`debugaudio`)
+- Local web dashboard (`/`) and JSON metrics endpoint (`/metrics`) on localhost
 - Launcher scripts for macOS, Linux, and Windows
 
 ## Requirements
@@ -69,7 +70,14 @@ cp ModernMusicBot.properties.example ModernMusicBot.properties
 bot.token=YOUR_DISCORD_BOT_TOKEN
 bot.prefix=!
 bot.language=en
+bot.dashboard.enabled=true
+bot.dashboard.port=8090
 ```
+
+Local runtime observability:
+
+- Dashboard: `http://127.0.0.1:8090/`
+- Metrics JSON: `http://127.0.0.1:8090/metrics`
 
 ### Easiest Option (Control Panel)
 
@@ -190,6 +198,8 @@ Slash commands are also available after startup:
 - `/play`, `/skip`, `/pause`, `/resume`, `/stop`, `/queue`, `/player`
 - `/volume`, `/bass`, `/remove`, `/shuffle`, `/clear`, `/loop`, `/seek`, `/autoplay`
 - `/setprefix`, `/setlang`, `/setdj`, `/setcommandchannel`, `/setblockedrole`, `/settings`, `/health`
+
+Load-failure messages now include source-aware suggestions (for example, retry delay, search fallback, or alternate upload guidance).
 
 Supported language codes for `bot.language`:
 

@@ -1,6 +1,7 @@
 package com.artem.musicbot;
 
 import java.nio.file.Path;
+import java.time.Instant;
 import java.util.EnumSet;
 import java.util.function.Consumer;
 
@@ -17,6 +18,7 @@ import net.dv8tion.jda.api.utils.cache.CacheFlag;
 
 public class BotRuntime {
     private JDA jda;
+    private LocalDashboardServer dashboardServer;
 
     public synchronized boolean isRunning() {
         return jda != null;
@@ -58,6 +60,19 @@ public class BotRuntime {
         }
 
         jda = built;
+
+        if (config.dashboardEnabled()) {
+            dashboardServer = new LocalDashboardServer(
+                    config.dashboardPort(),
+                    musicController::metricsSnapshot,
+                    musicController::healthSummary,
+                    () -> this.jda == null ? "stopped" : this.jda.getStatus().name(),
+                    Instant.now()
+            );
+            dashboardServer.start();
+            logger.accept("Dashboard started at " + dashboardServer.baseUrl());
+        }
+
         logger.accept("Bot started successfully.");
     }
 
@@ -69,6 +84,12 @@ public class BotRuntime {
 
         jda.shutdownNow();
         jda = null;
+
+        if (dashboardServer != null) {
+            dashboardServer.stop();
+            dashboardServer = null;
+        }
+
         logger.accept("Bot stopped.");
     }
 }

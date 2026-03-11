@@ -8,7 +8,15 @@ import java.nio.file.Path;
 import java.util.List;
 import java.util.Properties;
 
-public record BotConfig(String token, String prefix, String youtubePoToken, String youtubeVisitorData, String languageCode) {
+public record BotConfig(
+    String token,
+    String prefix,
+    String youtubePoToken,
+    String youtubeVisitorData,
+    String languageCode,
+    boolean dashboardEnabled,
+    int dashboardPort
+) {
     public static BotConfig load(Path path) throws IOException {
         if (looksLikeLegacyConfig(path)) {
             return loadLegacy(path);
@@ -24,8 +32,10 @@ public record BotConfig(String token, String prefix, String youtubePoToken, Stri
         String youtubePoToken = properties.getProperty("youtube.poToken", "").trim();
         String youtubeVisitorData = properties.getProperty("youtube.visitorData", "").trim();
         String languageCode = properties.getProperty("bot.language", "en").trim();
-        validate(prefix, languageCode);
-        return new BotConfig(token, prefix, youtubePoToken, youtubeVisitorData, languageCode);
+        boolean dashboardEnabled = Boolean.parseBoolean(properties.getProperty("bot.dashboard.enabled", "true").trim());
+        int dashboardPort = parsePort(properties.getProperty("bot.dashboard.port", "8090").trim());
+        validate(prefix, languageCode, dashboardPort);
+        return new BotConfig(token, prefix, youtubePoToken, youtubeVisitorData, languageCode, dashboardEnabled, dashboardPort);
     }
 
     private static boolean looksLikeLegacyConfig(Path path) {
@@ -59,8 +69,10 @@ public record BotConfig(String token, String prefix, String youtubePoToken, Stri
         }
 
         String languageCode = properties.getProperty("language", "en").trim();
-        validate(prefix, languageCode);
-        return new BotConfig(token, prefix, "", "", languageCode);
+        boolean dashboardEnabled = Boolean.parseBoolean(properties.getProperty("dashboardEnabled", "true").trim());
+        int dashboardPort = parsePort(properties.getProperty("dashboardPort", "8090").trim());
+        validate(prefix, languageCode, dashboardPort);
+        return new BotConfig(token, prefix, "", "", languageCode, dashboardEnabled, dashboardPort);
     }
 
     private static String stripInlineComment(String value) {
@@ -80,11 +92,23 @@ public record BotConfig(String token, String prefix, String youtubePoToken, Stri
         return value;
     }
 
-    private static void validate(String prefix, String languageCode) {
+    private static void validate(String prefix, String languageCode, int dashboardPort) {
         if (prefix.isBlank() || prefix.length() > 3) {
             throw new IllegalStateException("bot.prefix must be 1-3 non-space characters.");
         }
 
+        if (dashboardPort < 1 || dashboardPort > 65535) {
+            throw new IllegalStateException("bot.dashboard.port must be between 1 and 65535.");
+        }
+
         I18n.Language.from(languageCode);
+    }
+
+    private static int parsePort(String value) {
+        try {
+            return Integer.parseInt(value);
+        } catch (NumberFormatException ex) {
+            throw new IllegalStateException("Invalid bot.dashboard.port: " + value);
+        }
     }
 }

@@ -4,6 +4,8 @@
 bot.token=PASTE_BOT_TOKEN_HERE
 bot.prefix=!
 bot.language=en
+bot.dashboard.enabled=true
+bot.dashboard.port=8090
 
 # Optional: YouTube anti-bot fields (leave empty if not needed)
 youtube.poToken=

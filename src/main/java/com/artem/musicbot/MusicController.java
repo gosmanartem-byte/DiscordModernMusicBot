@@ -4,6 +4,7 @@ import java.awt.Color;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.atomic.AtomicLong;
 
 import com.sedmelluq.discord.lavaplayer.filter.equalizer.EqualizerFactory;
 import com.sedmelluq.discord.lavaplayer.format.StandardAudioDataFormats;
@@ -43,6 +44,9 @@ public class MusicController {
     private final Map<Long, TextChannel> lastTextChannels = new ConcurrentHashMap<>();
     private final I18n i18n;
     private final GuildSettingsStore settingsStore;
+    private final AtomicLong loadSuccessCount = new AtomicLong();
+    private final AtomicLong loadFailureCount = new AtomicLong();
+    private final AtomicLong noMatchesCount = new AtomicLong();
 
     public MusicController(BotConfig config, I18n i18n, GuildSettingsStore settingsStore) {
         this.i18n = i18n;
@@ -86,6 +90,7 @@ public class MusicController {
             public void trackLoaded(AudioTrack track) {
                 musicManager.scheduler.queue(track);
                 lastTrackQueries.put(channel.getGuild().getIdLong(), track.getInfo().title);
+                loadSuccessCount.incrementAndGet();
                 channel.sendMessage("Queued: " + track.getInfo().title).queue();
             }
 
@@ -103,19 +108,44 @@ public class MusicController {
 
                 musicManager.scheduler.queue(track);
                 lastTrackQueries.put(channel.getGuild().getIdLong(), track.getInfo().title);
+                loadSuccessCount.incrementAndGet();
                 channel.sendMessage("Queued from playlist: " + track.getInfo().title).queue();
             }
 
             @Override
             public void noMatches() {
+                noMatchesCount.incrementAndGet();
                 channel.sendMessage("Nothing found for: " + identifier).queue();
             }
 
             @Override
             public void loadFailed(FriendlyException exception) {
-                channel.sendMessage("Load failed: " + exception.getMessage()).queue();
+                loadFailureCount.incrementAndGet();
+                channel.sendMessage(buildLoadFailureMessage(identifier, exception)).queue();
             }
         });
+    }
+
+    public MetricsSnapshot metricsSnapshot() {
+        int trackedGuilds = musicManagers.size();
+        int activePlayers = 0;
+        int queuedTracks = 0;
+
+        for (GuildMusicManager manager : musicManagers.values()) {
+            if (manager.player.getPlayingTrack() != null) {
+                activePlayers++;
+            }
+            queuedTracks += manager.scheduler.getQueue().size();
+        }
+
+        return new MetricsSnapshot(
+                trackedGuilds,
+                activePlayers,
+                queuedTracks,
+                loadSuccessCount.get(),
+                loadFailureCount.get(),
+                noMatchesCount.get()
+        );
     }
 
     public void skip(TextChannel channel) {
@@ -603,5 +633,43 @@ public class MusicController {
         }
 
         return null;
+    }
+
+    private String buildLoadFailureMessage(String identifier, FriendlyException exception) {
+        String message = exception.getMessage() == null ? "unknown error" : exception.getMessage();
+        String lower = (identifier + " " + message).toLowerCase();
+
+        String reason;
+        String advice;
+        if (lower.contains("429") || lower.contains("too many requests") || lower.contains("rate")
+                || lower.contains("not a bot") || lower.contains("sign in") || lower.contains("captcha")) {
+            reason = "Source temporarily limited requests.";
+            advice = "Try again in a few minutes, or use a search query instead of a direct URL.";
+        } else if (lower.contains("age") || lower.contains("restricted") || lower.contains("unavailable")) {
+            reason = "The track may be age-restricted or unavailable in your region.";
+            advice = "Try a different source or search query for an alternative upload.";
+        } else if (lower.contains("private") || lower.contains("forbidden") || lower.contains("403")) {
+            reason = "The track appears private or blocked for this client.";
+            advice = "Try a public mirror/upload or search for the same song title.";
+        } else {
+            reason = "The source failed to load this item.";
+            advice = "Retry, or use `play <search words>` to fall back to search mode.";
+        }
+
+        return String.join("\n",
+                "Load failed for: " + identifier,
+                reason,
+                "Details: " + message,
+                "Suggestion: " + advice);
+    }
+
+    public record MetricsSnapshot(
+            int trackedGuilds,
+            int activePlayers,
+            int queuedTracks,
+            long loadSuccess,
+            long loadFailures,
+            long noMatches
+    ) {
     }
 }
