@@ -160,6 +160,13 @@ Current packaged targets:
 - Linux ARM64
 - Windows x86-64
 
+GitHub tag releases (`v*`) also build native desktop installers:
+
+- Windows installer (`.exe`) with Start Menu and desktop shortcut options.
+- macOS installer (`.dmg`) that installs a regular `.app`.
+
+Linux remains distributed as zip packages with shell launch scripts.
+
 ## Commands
 
 Text commands use your configured prefix (default `!`).
