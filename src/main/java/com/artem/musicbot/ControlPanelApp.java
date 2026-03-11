@@ -4,7 +4,9 @@ import java.awt.BorderLayout;
 import java.awt.Dimension;
 import java.awt.GridBagConstraints;
 import java.awt.GridBagLayout;
+import java.awt.Image;
 import java.awt.Insets;
+import java.awt.Taskbar;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
@@ -19,6 +21,7 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.atomic.AtomicInteger;
 
+import javax.imageio.ImageIO;
 import javax.swing.BorderFactory;
 import javax.swing.JButton;
 import javax.swing.JComboBox;
@@ -90,6 +93,7 @@ public class ControlPanelApp {
 
     private void show() {
         frame = new JFrame("ModernMusicBot Control Panel");
+        applyAppIcon();
         frame.setDefaultCloseOperation(WindowConstants.EXIT_ON_CLOSE);
         frame.setLayout(new BorderLayout(10, 10));
 
@@ -193,6 +197,24 @@ public class ControlPanelApp {
                 runtime.stop(ControlPanelApp.this::log);
             }
         });
+    }
+
+    private void applyAppIcon() {
+        try (InputStream iconStream = ControlPanelApp.class.getResourceAsStream("/app-icon.png")) {
+            if (iconStream == null) {
+                return;
+            }
+            Image appIcon = ImageIO.read(iconStream);
+            if (appIcon == null) {
+                return;
+            }
+            frame.setIconImage(appIcon);
+            if (Taskbar.isTaskbarSupported()) {
+                Taskbar.getTaskbar().setIconImage(appIcon);
+            }
+        } catch (Exception ignored) {
+            // Keep startup resilient if icon loading is unsupported on a platform.
+        }
     }
 
     private void wireActions() {

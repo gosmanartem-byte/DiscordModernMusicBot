@@ -150,6 +150,7 @@ jobs:
             --input dist/jpackage/input \
             --main-jar DiscordModernMusicBot.jar \
             --main-class com.artem.musicbot.ControlPanelApp \
+            --icon src/main/resources/icon.icns \
             --dest dist/releases \
             --app-version "$VERSION" \
             --vendor "DiscordModernMusicBot" \
