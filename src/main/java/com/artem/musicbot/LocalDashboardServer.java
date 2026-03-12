@@ -2,11 +2,13 @@ package com.artem.musicbot;
 
 import java.io.IOException;
 import java.io.OutputStream;
+import java.net.InetAddress;
 import java.net.InetSocketAddress;
 import java.nio.charset.StandardCharsets;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.Locale;
+import java.util.function.Function;
 import java.util.function.Supplier;
 
 import com.sun.net.httpserver.HttpExchange;
@@ -17,6 +19,7 @@ public class LocalDashboardServer {
     private final Supplier<MusicController.MetricsSnapshot> metricsSupplier;
     private final Supplier<String> healthSupplier;
     private final Supplier<String> jdaStatusSupplier;
+    private final Function<String, String> actionHandler;
     private final Instant startedAt;
 
     private HttpServer server;
@@ -26,12 +29,14 @@ public class LocalDashboardServer {
             Supplier<MusicController.MetricsSnapshot> metricsSupplier,
             Supplier<String> healthSupplier,
             Supplier<String> jdaStatusSupplier,
+            Function<String, String> actionHandler,
             Instant startedAt
     ) {
         this.port = port;
         this.metricsSupplier = metricsSupplier;
         this.healthSupplier = healthSupplier;
         this.jdaStatusSupplier = jdaStatusSupplier;
+        this.actionHandler = actionHandler;
         this.startedAt = startedAt;
     }
 
@@ -43,6 +48,7 @@ public class LocalDashboardServer {
         server = HttpServer.create(new InetSocketAddress("127.0.0.1", port), 0);
         server.createContext("/", this::handleDashboard);
         server.createContext("/metrics", this::handleMetrics);
+        server.createContext("/action", this::handleAction);
         server.start();
     }
 
@@ -112,6 +118,16 @@ public class LocalDashboardServer {
                       <pre id="health" class="mono">%s</pre>
                     </div>
                                         <div class="card" style="margin-top:12px;">
+                                            <div class="label">Controls</div>
+                                            <div style="display:flex; gap:8px; flex-wrap:wrap; margin-top:8px;">
+                                                <button id="pauseBtn" onclick="sendAction('pause')">Pause</button>
+                                                <button id="resumeBtn" onclick="sendAction('resume')">Resume</button>
+                                                <button id="skipBtn" onclick="sendAction('skip')">Skip</button>
+                                                <button id="stopBtn" onclick="sendAction('stop')">Stop</button>
+                                            </div>
+                                            <div id="actionStatus" class="mono" style="margin-top:8px; color:var(--muted);">No action yet.</div>
+                                        </div>
+                                        <div class="card" style="margin-top:12px;">
                                             <div class="label">Queue Preview</div>
                                             <div id="playerGuild" class="mono" style="margin-bottom:8px; color:var(--muted);">Guild: %s</div>
                                             <pre id="queuePreview" class="mono">%s</pre>
@@ -127,6 +143,31 @@ public class LocalDashboardServer {
                                                     return String(hours).padStart(2, '0') + ':' + String(minutes).padStart(2, '0') + ':' + String(seconds).padStart(2, '0');
                                                 }
                                                 return String(minutes).padStart(2, '0') + ':' + String(seconds).padStart(2, '0');
+                                            }
+
+                                            function setControlStates(state) {
+                                                const normalized = (state || '').toLowerCase();
+                                                document.getElementById('pauseBtn').disabled = normalized !== 'playing';
+                                                document.getElementById('resumeBtn').disabled = normalized !== 'paused';
+                                                document.getElementById('skipBtn').disabled = normalized === 'idle';
+                                                document.getElementById('stopBtn').disabled = normalized === 'idle';
+                                            }
+
+                                            async function sendAction(action) {
+                                                const status = document.getElementById('actionStatus');
+                                                status.textContent = 'Running: ' + action + '...';
+                                                try {
+                                                    const r = await fetch('/action/' + action, {method: 'POST', cache: 'no-store'});
+                                                    const body = await r.json();
+                                                    if (!r.ok || !body.ok) {
+                                                        status.textContent = 'Action failed: ' + (body.message || 'unknown error');
+                                                        return;
+                                                    }
+                                                    status.textContent = 'Action complete: ' + action;
+                                                    await refresh();
+                                                } catch (e) {
+                                                    status.textContent = 'Action failed: ' + e;
+                                                }
                                             }
 
                       async function refresh() {
@@ -145,8 +186,10 @@ public class LocalDashboardServer {
                                                 document.getElementById('playerPosition').textContent = 'Position: ' + formatMs(m.nowPlayingPositionMs) + ' / ' + formatMs(m.nowPlayingDurationMs);
                                                 document.getElementById('playerGuild').textContent = 'Guild: ' + m.nowPlayingGuild;
                                                 document.getElementById('queuePreview').textContent = m.queuePreview;
+                                                setControlStates(m.nowPlayingState);
                         document.getElementById('health').textContent = m.healthSummary;
                       }
+                                            refresh();
                       setInterval(refresh, 5000);
                     </script>
                   </div>
@@ -211,6 +254,32 @@ public class LocalDashboardServer {
         }
     }
 
+    private void handleAction(HttpExchange exchange) throws IOException {
+        if (!isLoopbackRequest(exchange)) {
+            respondJson(exchange, 403, false, "Loopback requests only.");
+            return;
+        }
+
+        if (!"POST".equalsIgnoreCase(exchange.getRequestMethod())) {
+            respondText(exchange, 405, "Method Not Allowed");
+            return;
+        }
+
+        String path = exchange.getRequestURI().getPath();
+        String action = path.length() > "/action/".length() ? path.substring("/action/".length()) : "";
+        if (action.isBlank()) {
+            respondJson(exchange, 400, false, "Missing action.");
+            return;
+        }
+
+        try {
+            String message = actionHandler.apply(action);
+            respondJson(exchange, 200, true, message == null || message.isBlank() ? "ok" : message);
+        } catch (RuntimeException ex) {
+            respondJson(exchange, 400, false, ex.getMessage());
+        }
+    }
+
     private void respondText(HttpExchange exchange, int statusCode, String body) throws IOException {
         byte[] bytes = body.getBytes(StandardCharsets.UTF_8);
         exchange.getResponseHeaders().set("Content-Type", "text/plain; charset=utf-8");
@@ -218,6 +287,24 @@ public class LocalDashboardServer {
         try (OutputStream os = exchange.getResponseBody()) {
             os.write(bytes);
         }
+    }
+
+    private void respondJson(HttpExchange exchange, int statusCode, boolean ok, String message) throws IOException {
+        String json = "{" +
+                "\"ok\":" + ok + "," +
+                "\"message\":\"" + escapeJson(message) + "\"" +
+                "}";
+        byte[] bytes = json.getBytes(StandardCharsets.UTF_8);
+        exchange.getResponseHeaders().set("Content-Type", "application/json; charset=utf-8");
+        exchange.sendResponseHeaders(statusCode, bytes.length);
+        try (OutputStream os = exchange.getResponseBody()) {
+            os.write(bytes);
+        }
+    }
+
+    private boolean isLoopbackRequest(HttpExchange exchange) {
+        InetAddress address = exchange.getRemoteAddress() == null ? null : exchange.getRemoteAddress().getAddress();
+        return address != null && address.isLoopbackAddress();
     }
 
     private String formatUptime() {
@@ -235,6 +322,9 @@ public class LocalDashboardServer {
     }
 
     private static String escapeHtml(String value) {
+        if (value == null) {
+            return "";
+        }
         return value
                 .replace("&", "&amp;")
                 .replace("<", "&lt;")
@@ -242,6 +332,9 @@ public class LocalDashboardServer {
     }
 
     private static String escapeJson(String value) {
+        if (value == null) {
+            return "";
+        }
         return value
                 .replace("\\", "\\\\")
                 .replace("\"", "\\\"")

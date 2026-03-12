@@ -504,6 +504,32 @@ public class MusicController {
         return last == null ? 0L : last.getIdLong();
     }
 
+    public long dashboardTargetGuildId() {
+        Long fallbackQueueGuild = null;
+        Long fallbackAnyGuild = null;
+
+        for (Map.Entry<Long, GuildMusicManager> entry : musicManagers.entrySet()) {
+            long guildId = entry.getKey();
+            GuildMusicManager manager = entry.getValue();
+            if (fallbackAnyGuild == null) {
+                fallbackAnyGuild = guildId;
+            }
+
+            if (manager.player.getPlayingTrack() != null) {
+                return guildId;
+            }
+
+            if (fallbackQueueGuild == null && !manager.scheduler.getQueue().isEmpty()) {
+                fallbackQueueGuild = guildId;
+            }
+        }
+
+        if (fallbackQueueGuild != null) {
+            return fallbackQueueGuild;
+        }
+        return fallbackAnyGuild == null ? 0L : fallbackAnyGuild;
+    }
+
     public String desktopPlayerSummary(long guildId) {
         GuildMusicManager manager = musicManagers.get(guildId);
         if (manager == null) {

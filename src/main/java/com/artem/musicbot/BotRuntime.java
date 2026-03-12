@@ -87,6 +87,7 @@ public class BotRuntime {
                     musicController::metricsSnapshot,
                     musicController::healthSummary,
                     () -> this.jda == null ? "stopped" : this.jda.getStatus().name(),
+                    this::dashboardControlAction,
                     Instant.now()
             );
             dashboardServer.start();
@@ -334,6 +335,70 @@ public class BotRuntime {
             return false;
         }
         return musicController.isStopCleanupBotOnly();
+    }
+
+    private synchronized String dashboardControlAction(String action) {
+        if (musicController == null || jda == null) {
+            throw new IllegalStateException("Bot is not running.");
+        }
+
+        TextChannel channel = resolveDashboardChannel();
+        if (channel == null) {
+            throw new IllegalStateException("No available text channel for dashboard action.");
+        }
+
+        String normalized = action == null ? "" : action.trim().toLowerCase();
+        switch (normalized) {
+            case "pause" -> musicController.pause(channel);
+            case "resume" -> musicController.resume(channel);
+            case "skip" -> musicController.skip(channel);
+            case "stop" -> musicController.stop(channel);
+            default -> throw new IllegalArgumentException("Unsupported action: " + action);
+        }
+
+        return "ok";
+    }
+
+    private TextChannel resolveDashboardChannel() {
+        if (jda == null || musicController == null) {
+            return null;
+        }
+
+        long preferredGuildId = musicController.dashboardTargetGuildId();
+        TextChannel preferred = resolvePreferredChannelForGuild(preferredGuildId);
+        if (preferred != null) {
+            return preferred;
+        }
+
+        for (Guild guild : jda.getGuilds()) {
+            TextChannel fallback = resolvePreferredChannelForGuild(guild.getIdLong());
+            if (fallback != null) {
+                return fallback;
+            }
+        }
+
+        return null;
+    }
+
+    private TextChannel resolvePreferredChannelForGuild(long guildId) {
+        if (guildId == 0L || jda == null || musicController == null) {
+            return null;
+        }
+
+        Guild guild = jda.getGuildById(guildId);
+        if (guild == null) {
+            return null;
+        }
+
+        long preferredChannelId = musicController.preferredTextChannelId(guildId);
+        if (preferredChannelId != 0L) {
+            TextChannel preferred = guild.getTextChannelById(preferredChannelId);
+            if (preferred != null) {
+                return preferred;
+            }
+        }
+
+        return guild.getTextChannels().isEmpty() ? null : guild.getTextChannels().get(0);
     }
 
     private TextChannel requireTextChannel(long guildId, long channelId) {
