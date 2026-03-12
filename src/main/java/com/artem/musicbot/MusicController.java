@@ -50,7 +50,7 @@ public class MusicController {
     private static final int MAX_BASS = 5;
     private static final int BULK_DELETE_LIMIT = 100;
     private static final long PLAYER_PANEL_REFRESH_SECONDS = 2L;
-    private static final int MIN_FRAME_BUFFER_MS = 200;
+    private static final int MIN_FRAME_BUFFER_MS = 1400;
 
     private final AudioPlayerManager playerManager;
     private final Map<Long, GuildMusicManager> musicManagers = new ConcurrentHashMap<>();
