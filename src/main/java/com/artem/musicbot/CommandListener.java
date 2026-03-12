@@ -1,9 +1,11 @@
 package com.artem.musicbot;
 
+import java.util.List;
 import java.util.Locale;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
+import net.dv8tion.jda.api.EmbedBuilder;
 import net.dv8tion.jda.api.Permission;
 import net.dv8tion.jda.api.entities.Guild;
 import net.dv8tion.jda.api.entities.Member;
@@ -21,6 +23,7 @@ import net.dv8tion.jda.api.interactions.commands.build.Commands;
 public class CommandListener extends ListenerAdapter {
     private static final Pattern CHANNEL_MENTION_PATTERN = Pattern.compile("^<#(\\d+)>$");
     private static final Pattern ROLE_MENTION_PATTERN = Pattern.compile("^<@&(\\d+)>$");
+    private static final int QUEUE_PAGE_SIZE = 10;
 
     private final String defaultPrefix;
     private final MusicController musicController;
@@ -359,6 +362,24 @@ public class CommandListener extends ListenerAdapter {
             return;
         }
 
+        if (event.getComponentId().startsWith("playerq:")) {
+            Integer requestedPage = parseInt(event.getComponentId().substring("playerq:".length()));
+            int page = requestedPage == null ? 0 : Math.max(0, requestedPage);
+            event.editMessageEmbeds(buildQueuePageEmbed(channel, settings, page))
+                    .setComponents(queuePageButtons(settings, channel, page))
+                    .queue();
+            return;
+        }
+
+        if ("player:queue".equals(event.getComponentId())) {
+            doDjChecked(channel, event.getMember(), settings, () ->
+                    event.replyEmbeds(buildQueuePageEmbed(channel, settings, 0))
+                        .setComponents(queuePageButtons(settings, channel, 0))
+                            .setEphemeral(true)
+                            .queue());
+            return;
+        }
+
         if (!event.getComponentId().startsWith("player:")) {
             return;
         }
@@ -626,6 +647,48 @@ public class CommandListener extends ListenerAdapter {
         }
 
         return true;
+    }
+
+    private net.dv8tion.jda.api.components.MessageTopLevelComponent queuePageButtons(GuildSettings settings, TextChannel channel, int requestedPage) {
+        I18n i18n = i18nFor(settings);
+        List<String> queue = musicController.desktopQueueEntries(channel.getGuild().getIdLong());
+        int totalPages = Math.max(1, (queue.size() + QUEUE_PAGE_SIZE - 1) / QUEUE_PAGE_SIZE);
+        int page = Math.max(0, Math.min(requestedPage, totalPages - 1));
+
+        boolean isFirst = page <= 0;
+        boolean isLast = page >= totalPages - 1;
+
+        return net.dv8tion.jda.api.components.actionrow.ActionRow.of(
+                net.dv8tion.jda.api.components.buttons.Button.secondary("playerq:" + Math.max(0, page - 1), i18n.t("player.queue.prev")).withDisabled(isFirst),
+                net.dv8tion.jda.api.components.buttons.Button.secondary("playerq:" + Math.min(totalPages - 1, page + 1), i18n.t("player.queue.next")).withDisabled(isLast)
+        );
+    }
+
+    private net.dv8tion.jda.api.entities.MessageEmbed buildQueuePageEmbed(TextChannel channel, GuildSettings settings, int requestedPage) {
+        I18n i18n = i18nFor(settings);
+        List<String> queue = musicController.desktopQueueEntries(channel.getGuild().getIdLong());
+        int totalPages = Math.max(1, (queue.size() + QUEUE_PAGE_SIZE - 1) / QUEUE_PAGE_SIZE);
+        int page = Math.max(0, Math.min(requestedPage, totalPages - 1));
+
+        EmbedBuilder builder = new EmbedBuilder()
+                .setTitle(i18n.t("player.queue"));
+
+        if (queue.isEmpty()) {
+            builder.setDescription(i18n.t("player.queueEmpty"));
+            builder.setFooter(i18n.t("player.queue.page", 1, 1));
+            return builder.build();
+        }
+
+        int start = page * QUEUE_PAGE_SIZE;
+        int end = Math.min(queue.size(), start + QUEUE_PAGE_SIZE);
+        StringBuilder description = new StringBuilder();
+        for (int i = start; i < end; i++) {
+            description.append(i + 1).append(". ").append(queue.get(i)).append('\n');
+        }
+
+        builder.setDescription(description.toString().trim());
+        builder.setFooter(i18n.t("player.queue.page", page + 1, totalPages));
+        return builder.build();
     }
 
     private boolean isAdmin(Member member) {

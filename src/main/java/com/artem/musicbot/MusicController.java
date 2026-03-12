@@ -1393,6 +1393,7 @@ public class MusicController {
                     Button.secondary("player:bassreset", localI18n.t("player.bassreset")),
                     Button.secondary("player:qremove", localI18n.t("player.qremove")),
                     Button.secondary("player:qclear", localI18n.t("player.qclear")),
+                    Button.secondary("player:queue", localI18n.t("player.queue")),
                         Button.secondary("player:refresh", localI18n.t("player.refresh"))
                 )
         );
