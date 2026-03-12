@@ -71,6 +71,7 @@ public class MusicController {
     private final Map<Long, AtomicBoolean> playerPanelRefreshPending = new ConcurrentHashMap<>();
     private final Map<Long, ScheduledFuture<?>> playerPanelAutoRefreshTasks = new ConcurrentHashMap<>();
     private final Map<Long, Long> playerPanelLastAutoRefreshMillis = new ConcurrentHashMap<>();
+    private final Map<Long, String> playerPanelLastRenderedSignature = new ConcurrentHashMap<>();
     private final ScheduledExecutorService playerPanelRefresher = Executors.newSingleThreadScheduledExecutor(r -> {
         Thread thread = new Thread(r, "player-panel-refresher");
         thread.setDaemon(true);
@@ -945,13 +946,24 @@ public class MusicController {
             AtomicBoolean pending
     ) {
         long guildId = channel.getGuild().getIdLong();
+        String nextSignature = buildPlayerPanelSignature(channel.getGuild(), prefix);
+
         Long messageId = playerPanelMessageIds.get(guildId);
+        String lastSignature = playerPanelLastRenderedSignature.get(guildId);
+        if (messageId != null && nextSignature.equals(lastSignature)) {
+            finishPlayerPanelRefresh(guild, inFlight, pending);
+            return;
+        }
+
         if (messageId != null) {
             channel.retrieveMessageById(messageId).queue(existing ->
                     existing.editMessageEmbeds(buildPlayerEmbed(channel.getGuild(), prefix))
                             .setComponents(playerComponents(guildI18n(channel.getGuild())))
                             .queue(
-                                    ignored -> finishPlayerPanelRefresh(guild, inFlight, pending),
+                        ignored -> {
+                        playerPanelLastRenderedSignature.put(guildId, nextSignature);
+                        finishPlayerPanelRefresh(guild, inFlight, pending);
+                        },
                                     ignored -> postNewPlayerPanel(guild, channel, prefix, inFlight, pending)
                             ),
                     ignored -> postNewPlayerPanel(guild, channel, prefix, inFlight, pending)
@@ -975,6 +987,7 @@ public class MusicController {
                 .queue(message -> {
                     playerPanelChannelIds.put(guildId, channel.getIdLong());
                     playerPanelMessageIds.put(guildId, message.getIdLong());
+                    playerPanelLastRenderedSignature.put(guildId, buildPlayerPanelSignature(channel.getGuild(), prefix));
                     finishPlayerPanelRefresh(guild, inFlight, pending);
                 }, ignored -> finishPlayerPanelRefresh(guild, inFlight, pending));
     }
@@ -1047,6 +1060,7 @@ public class MusicController {
         playerPanelRefreshInFlight.remove(guildId);
         playerPanelRefreshPending.remove(guildId);
         playerPanelLastAutoRefreshMillis.remove(guildId);
+        playerPanelLastRenderedSignature.remove(guildId);
         stopPlayerPanelAutoRefresh(guildId);
     }
 
@@ -1185,6 +1199,32 @@ public class MusicController {
                     Button.secondary("player:bassreset", localI18n.t("player.bassreset")),
                         Button.secondary("player:refresh", localI18n.t("player.refresh"))
                 )
+        );
+    }
+
+    private String buildPlayerPanelSignature(Guild guild, String prefix) {
+        GuildMusicManager musicManager = getGuildMusicManager(guild);
+        AudioTrack current = musicManager.player.getPlayingTrack();
+
+        String state = current == null
+                ? "idle"
+                : (musicManager.player.isPaused() ? "paused" : "playing");
+        String trackTitle = current == null ? "none" : current.getInfo().title;
+        String trackUri = current == null ? "none" : String.valueOf(current.getInfo().uri);
+        long positionBucket = current == null ? 0L : (musicManager.getCalculatedPositionMs() / 1000L);
+        long duration = current == null ? 0L : current.getDuration();
+        String queuePreview = buildQueuePreview(musicManager, guildI18n(guild));
+
+        return String.join("|",
+                prefix,
+                state,
+                trackTitle,
+                trackUri,
+                Long.toString(positionBucket),
+                Long.toString(duration),
+                Integer.toString(musicManager.player.getVolume()),
+                Integer.toString(musicManager.getBassLevel()),
+                queuePreview
         );
     }
 
