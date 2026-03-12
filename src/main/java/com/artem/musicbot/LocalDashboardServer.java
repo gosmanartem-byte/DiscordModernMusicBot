@@ -124,6 +124,8 @@ public class LocalDashboardServer {
                                                 <button id="resumeBtn" onclick="sendAction('resume')">Resume</button>
                                                 <button id="skipBtn" onclick="sendAction('skip')">Skip</button>
                                                 <button id="stopBtn" onclick="sendAction('stop')">Stop</button>
+                                                <button id="qremoveBtn" onclick="sendAction('qremove')">Remove Next</button>
+                                                <button id="qclearBtn" onclick="sendAction('qclear')">Clear Queue</button>
                                             </div>
                                             <div id="actionStatus" class="mono" style="margin-top:8px; color:var(--muted);">No action yet.</div>
                                         </div>
@@ -145,12 +147,15 @@ public class LocalDashboardServer {
                                                 return String(minutes).padStart(2, '0') + ':' + String(seconds).padStart(2, '0');
                                             }
 
-                                            function setControlStates(state) {
+                                            function setControlStates(state, queuedTracks) {
                                                 const normalized = (state || '').toLowerCase();
+                                                const hasQueue = Number.isFinite(queuedTracks) && queuedTracks > 0;
                                                 document.getElementById('pauseBtn').disabled = normalized !== 'playing';
                                                 document.getElementById('resumeBtn').disabled = normalized !== 'paused';
                                                 document.getElementById('skipBtn').disabled = normalized === 'idle';
                                                 document.getElementById('stopBtn').disabled = normalized === 'idle';
+                                                document.getElementById('qremoveBtn').disabled = !hasQueue;
+                                                document.getElementById('qclearBtn').disabled = !hasQueue;
                                             }
 
                                             async function sendAction(action) {
@@ -186,7 +191,7 @@ public class LocalDashboardServer {
                                                 document.getElementById('playerPosition').textContent = 'Position: ' + formatMs(m.nowPlayingPositionMs) + ' / ' + formatMs(m.nowPlayingDurationMs);
                                                 document.getElementById('playerGuild').textContent = 'Guild: ' + m.nowPlayingGuild;
                                                 document.getElementById('queuePreview').textContent = m.queuePreview;
-                                                setControlStates(m.nowPlayingState);
+                                                setControlStates(m.nowPlayingState, m.queuedTracks);
                         document.getElementById('health').textContent = m.healthSummary;
                       }
                                             refresh();

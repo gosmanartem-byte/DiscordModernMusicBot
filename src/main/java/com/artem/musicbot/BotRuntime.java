@@ -353,6 +353,8 @@ public class BotRuntime {
             case "resume" -> musicController.resume(channel);
             case "skip" -> musicController.skip(channel);
             case "stop" -> musicController.stop(channel);
+            case "qremove" -> musicController.remove(channel, 1);
+            case "qclear" -> musicController.clearQueue(channel);
             default -> throw new IllegalArgumentException("Unsupported action: " + action);
         }
 
