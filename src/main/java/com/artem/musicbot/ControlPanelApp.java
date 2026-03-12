@@ -92,6 +92,10 @@ public class ControlPanelApp {
     private JButton resumeButton;
     private JButton skipButton;
     private JButton stopPlaybackButton;
+    private JTextField removeIndexField;
+    private JButton removeQueueButton;
+    private JButton shuffleQueueButton;
+    private JButton clearQueueButton;
     private JButton earRapeToggleButton;
     private boolean earRapeEnabled;
     private JButton refreshDesktopButton;
@@ -370,6 +374,43 @@ public class ControlPanelApp {
             resumeButton.addActionListener(ignored -> desktopControlAsync("resume", BotRuntime::resumeFromDesktop));
             skipButton.addActionListener(ignored -> desktopControlAsync("skip", BotRuntime::skipFromDesktop));
             stopPlaybackButton.addActionListener(ignored -> desktopControlAsync("stop", BotRuntime::stopFromDesktop));
+            removeQueueButton.addActionListener(ignored -> worker.submit(() -> {
+                Long guildId = selectedGuildId();
+                Long channelId = selectedChannelId();
+                if (guildId == null || channelId == null) {
+                    SwingUtilities.invokeLater(() -> showError(ui("selectGuildTextChannelFirst")));
+                    return;
+                }
+
+                String raw = removeIndexField.getText().trim();
+                if (raw.isBlank()) {
+                    SwingUtilities.invokeLater(() -> showError(ui("queueIndexRequired")));
+                    return;
+                }
+
+                int index;
+                try {
+                    index = Integer.parseInt(raw);
+                } catch (NumberFormatException ex) {
+                    SwingUtilities.invokeLater(() -> showError(ui("queueIndexRequired")));
+                    return;
+                }
+
+                if (index < 1) {
+                    SwingUtilities.invokeLater(() -> showError(ui("queueIndexRequired")));
+                    return;
+                }
+
+                try {
+                    runtime.removeQueueFromDesktop(guildId, channelId, index);
+                    log(ui("desktopAction") + ": remove #" + index);
+                    refreshPlayerSummaryAsync();
+                } catch (Exception ex) {
+                    SwingUtilities.invokeLater(() -> showError(ex.getMessage()));
+                }
+            }));
+            shuffleQueueButton.addActionListener(ignored -> desktopControlAsync("shuffle", BotRuntime::shuffleQueueFromDesktop));
+            clearQueueButton.addActionListener(ignored -> desktopControlAsync("clear", BotRuntime::clearQueueFromDesktop));
             earRapeToggleButton.addActionListener(ignored -> {
                 final boolean targetState = !earRapeEnabled;
                 Long guildId = selectedGuildId();
@@ -441,10 +482,18 @@ public class ControlPanelApp {
         resumeButton = new JButton(ui("resume"));
         skipButton = new JButton(ui("skip"));
         stopPlaybackButton = new JButton(ui("stop"));
+        removeIndexField = new JTextField(4);
+        removeIndexField.setToolTipText(ui("queueIndexHint"));
+        removeQueueButton = new JButton(ui("queueRemove"));
+        shuffleQueueButton = new JButton(ui("queueShuffle"));
+        clearQueueButton = new JButton(ui("queueClear"));
         styleSecondaryButton(pauseButton);
         styleSecondaryButton(resumeButton);
         styleSecondaryButton(skipButton);
         styleSecondaryButton(stopPlaybackButton);
+        styleSecondaryButton(removeQueueButton);
+        styleSecondaryButton(shuffleQueueButton);
+        styleSecondaryButton(clearQueueButton);
         earRapeToggleButton = new JButton();
         styleSecondaryButton(earRapeToggleButton);
         setEarRapeEnabled(false);
@@ -505,6 +554,12 @@ public class ControlPanelApp {
         controls.add(stopPlaybackButton);
         controls.add(earRapeToggleButton);
 
+        controls.add(new JLabel(ui("queueIndex")));
+        controls.add(removeIndexField);
+        controls.add(removeQueueButton);
+        controls.add(shuffleQueueButton);
+        controls.add(clearQueueButton);
+
         c.gridx = 0;
         c.gridy = 3;
         c.gridwidth = 3;
@@ -531,6 +586,10 @@ public class ControlPanelApp {
         resumeButton.setEnabled(enabled);
         skipButton.setEnabled(enabled);
         stopPlaybackButton.setEnabled(enabled);
+        removeIndexField.setEnabled(enabled);
+        removeQueueButton.setEnabled(enabled);
+        shuffleQueueButton.setEnabled(enabled);
+        clearQueueButton.setEnabled(enabled);
         earRapeToggleButton.setEnabled(enabled);
         refreshDesktopButton.setEnabled(enabled);
         launchPlayerButton.setEnabled(enabled);
@@ -1010,6 +1069,12 @@ public class ControlPanelApp {
             case "couldNotShowSearchChoices" -> "Could not show search choices";
             case "clearConsole" -> "Clear Console";
             case "copySummary" -> "Copy Summary";
+            case "queueIndex" -> "Queue #";
+            case "queueIndexHint" -> "Track number in queue (1..n)";
+            case "queueRemove" -> "Remove";
+            case "queueShuffle" -> "Shuffle";
+            case "queueClear" -> "Clear Queue";
+            case "queueIndexRequired" -> "Enter a valid queue index (1..n).";
             case "toggleOn" -> "On";
             case "toggleOff" -> "Off";
             default -> key;
@@ -1037,6 +1102,12 @@ public class ControlPanelApp {
             case "launchPlayer" -> "Запустить плеер в Discord";
             case "clearConsole" -> "Очистить консоль";
             case "copySummary" -> "Копировать сводку";
+            case "queueIndex" -> "№ в очереди";
+            case "queueIndexHint" -> "Номер трека в очереди (1..n)";
+            case "queueRemove" -> "Удалить";
+            case "queueShuffle" -> "Перемешать";
+            case "queueClear" -> "Очистить очередь";
+            case "queueIndexRequired" -> "Введите корректный номер в очереди (1..n).";
             case "botNotRunning" -> "Бот не запущен.";
             case "guild" -> "Сервер";
             case "textChannel" -> "Текстовый канал";

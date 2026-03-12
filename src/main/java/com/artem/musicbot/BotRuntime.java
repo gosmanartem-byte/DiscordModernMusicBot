@@ -206,6 +206,21 @@ public class BotRuntime {
         musicController.skip(channel);
     }
 
+    public synchronized void removeQueueFromDesktop(long guildId, long channelId, int index) {
+        TextChannel channel = requireTextChannel(guildId, channelId);
+        musicController.remove(channel, index);
+    }
+
+    public synchronized void shuffleQueueFromDesktop(long guildId, long channelId) {
+        TextChannel channel = requireTextChannel(guildId, channelId);
+        musicController.shuffleQueue(channel);
+    }
+
+    public synchronized void clearQueueFromDesktop(long guildId, long channelId) {
+        TextChannel channel = requireTextChannel(guildId, channelId);
+        musicController.clearQueue(channel);
+    }
+
     public synchronized void stopFromDesktop(long guildId, long channelId) {
         TextChannel channel = requireTextChannel(guildId, channelId);
         musicController.stop(channel);
