@@ -94,6 +94,15 @@ xattr -dr com.apple.quarantine /Applications/ModernMusicBot.app
 
 Then launch the app again.
 
+If macOS says the app is **"corrupted"** and should be moved to Trash, run:
+
+```bash
+xattr -dr com.apple.quarantine /Applications/ModernMusicBot.app
+codesign --force --deep --sign - /Applications/ModernMusicBot.app
+```
+
+Then start ModernMusicBot again.
+
 ## Portable ZIP Setup (Advanced)
 
 If you prefer the ZIP release or are on Linux:

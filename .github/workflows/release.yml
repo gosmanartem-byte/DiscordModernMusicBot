@@ -152,13 +152,35 @@ jobs:
           cp "$JAR_PATH" dist/jpackage/input/DiscordModernMusicBot.jar
           cp ModernMusicBot.properties.example README.md README_INSTALLATION.md LICENSE dist/jpackage/input/
 
+          # Build a macOS app image first so we can apply an ad-hoc signature.
+          # This reduces "app is corrupted" launch failures from Gatekeeper on downloaded artifacts.
           jpackage \
-            --type dmg \
+            --type app-image \
             --name ModernMusicBot \
             --input dist/jpackage/input \
             --main-jar DiscordModernMusicBot.jar \
             --main-class com.artem.musicbot.ControlPanelApp \
             --icon src/main/resources/icon.icns \
+            --dest dist/jpackage \
+            --app-version "$VERSION" \
+            --vendor "DiscordModernMusicBot" \
+            --description "ModernMusicBot desktop launcher" \
+            --java-options "--enable-native-access=ALL-UNNAMED"
+
+          APP_IMAGE="dist/jpackage/ModernMusicBot.app"
+          if [[ ! -d "$APP_IMAGE" ]]; then
+            echo "macOS app image was not created" >&2
+            exit 1
+          fi
+
+          # Ad-hoc signing does not require Apple certificates and improves local launch behavior.
+          codesign --force --deep --sign - "$APP_IMAGE"
+          codesign --verify --deep --strict --verbose=2 "$APP_IMAGE"
+
+          jpackage \
+            --type dmg \
+            --name ModernMusicBot \
+            --app-image "$APP_IMAGE" \
             --dest dist/releases \
             --app-version "$VERSION" \
             --vendor "DiscordModernMusicBot" \
