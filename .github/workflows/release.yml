@@ -319,4 +319,5 @@ jobs:
         with:
           tag_name: ${{ steps.release_meta.outputs.tag }}
           files: dist/releases/*
+          append_body: false
           generate_release_notes: true
