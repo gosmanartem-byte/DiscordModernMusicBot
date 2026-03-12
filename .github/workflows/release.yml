@@ -102,6 +102,28 @@ jobs:
           }
 
           jpackage `
+            --type msi `
+            --name ModernMusicBot `
+            --app-image $appImage `
+            --dest dist/releases `
+            --app-version $version `
+            --vendor "DiscordModernMusicBot" `
+            --description "ModernMusicBot desktop launcher" `
+            --win-shortcut `
+            --win-menu `
+            --win-dir-chooser `
+            --win-per-user-install `
+            --win-upgrade-uuid "4f8d1f3b-9f6b-4d28-9c58-5e55b7c4d7a1"
+
+          $builtMsi = Get-ChildItem dist/releases -Filter "ModernMusicBot*.msi" | Select-Object -First 1
+          if ($null -eq $builtMsi) {
+            throw "Windows MSI installer was not created"
+          }
+          $msiTarget = "dist/releases/DiscordModernMusicBot-v$version-windows-installer.msi"
+          Move-Item $builtMsi.FullName $msiTarget -Force
+
+          # Keep EXE as secondary format for users who prefer bootstrap installers.
+          jpackage `
             --type exe `
             --name ModernMusicBot `
             --app-image $appImage `
@@ -112,20 +134,23 @@ jobs:
             --win-shortcut `
             --win-menu `
             --win-dir-chooser `
-            --win-per-user-install
+            --win-per-user-install `
+            --win-upgrade-uuid "4f8d1f3b-9f6b-4d28-9c58-5e55b7c4d7a1"
 
-          $built = Get-ChildItem dist/releases -Filter "ModernMusicBot*.exe" | Select-Object -First 1
-          if ($null -eq $built) {
-            throw "Windows installer was not created"
+          $builtExe = Get-ChildItem dist/releases -Filter "ModernMusicBot*.exe" | Select-Object -First 1
+          if ($null -eq $builtExe) {
+            throw "Windows EXE installer was not created"
           }
-          $target = "dist/releases/DiscordModernMusicBot-v$version-windows-installer.exe"
-          Move-Item $built.FullName $target -Force
+          $exeTarget = "dist/releases/DiscordModernMusicBot-v$version-windows-installer.exe"
+          Move-Item $builtExe.FullName $exeTarget -Force
 
       - name: Upload windows installer asset
         uses: actions/upload-artifact@v4
         with:
           name: release-windows-installer
-          path: dist/releases/*-windows-installer.exe
+          path: |
+            dist/releases/*-windows-installer.exe
+            dist/releases/*-windows-installer.msi
 
   build-macos-installer:
     runs-on: macos-latest
