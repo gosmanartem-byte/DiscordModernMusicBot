@@ -48,6 +48,22 @@ bot.prefix=!
 
 `start.command` will build and run the jar automatically.
 
+## macOS: If the app/script is blocked
+
+If macOS says ModernMusicBot or `start.command` cannot be opened:
+
+1. In Finder, right-click the app (or `start.command`) and click **Open**.
+2. Click **Open** again in the warning dialog.
+3. If needed, open **System Settings -> Privacy & Security** and click **Open Anyway** for the blocked item.
+
+If macOS still blocks files extracted from ZIP, remove quarantine attributes:
+
+```bash
+xattr -dr com.apple.quarantine /path/to/ModernMusicBot
+```
+
+Then try launching again.
+
 ## 6. Commands
 
 - `!play <url or search>`

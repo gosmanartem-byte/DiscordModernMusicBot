@@ -72,6 +72,28 @@ In the **Bot** tab, enable:
 
 > The native installers bundle their own Java runtime. No separate Java installation required.
 
+### Step 4.1: macOS if "App can't be opened" (Gatekeeper)
+
+If macOS blocks ModernMusicBot with a warning that it cannot be opened:
+
+1. In Finder, open **Applications**
+2. Right-click **ModernMusicBot.app** and click **Open**
+3. Click **Open** again in the security prompt
+
+If that still does not appear:
+
+1. Go to **System Settings -> Privacy & Security**
+2. Scroll to the security warning for ModernMusicBot
+3. Click **Open Anyway**, then confirm
+
+If you are running the app from a ZIP and macOS still blocks it, remove quarantine flags:
+
+```bash
+xattr -dr com.apple.quarantine /Applications/ModernMusicBot.app
+```
+
+Then launch the app again.
+
 ## Portable ZIP Setup (Advanced)
 
 If you prefer the ZIP release or are on Linux:
