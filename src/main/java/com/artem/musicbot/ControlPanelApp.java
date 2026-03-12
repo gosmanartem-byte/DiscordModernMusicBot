@@ -28,10 +28,12 @@ import java.util.concurrent.atomic.AtomicInteger;
 
 import javax.imageio.ImageIO;
 import javax.swing.BorderFactory;
+import javax.swing.DefaultListModel;
 import javax.swing.JButton;
 import javax.swing.JComboBox;
 import javax.swing.JFrame;
 import javax.swing.JLabel;
+import javax.swing.JList;
 import javax.swing.JMenu;
 import javax.swing.JMenuBar;
 import javax.swing.JMenuItem;
@@ -41,6 +43,7 @@ import javax.swing.JPasswordField;
 import javax.swing.JScrollPane;
 import javax.swing.JTextArea;
 import javax.swing.JTextField;
+import javax.swing.ListSelectionModel;
 import javax.swing.SwingUtilities;
 import javax.swing.Timer;
 import javax.swing.UIManager;
@@ -102,6 +105,8 @@ public class ControlPanelApp {
     private JButton refreshDesktopButton;
     private JButton launchPlayerButton;
     private JTextArea playerSummaryArea;
+    private JList<String> queueList;
+    private DefaultListModel<String> queueListModel;
     private Timer desktopRefreshTimer;
     private String controlPanelLanguageCode = "en";
     private Color brandAccent = new Color(52, 120, 214);
@@ -350,18 +355,20 @@ public class ControlPanelApp {
                     return;
                 }
 
-                String raw = removeIndexField.getText().trim();
-                if (raw.isBlank()) {
-                    SwingUtilities.invokeLater(() -> showError(ui("queueIndexRequired")));
-                    return;
-                }
+                int index = queueList == null ? -1 : queueList.getSelectedIndex() + 1;
+                if (index <= 0) {
+                    String raw = removeIndexField.getText().trim();
+                    if (raw.isBlank()) {
+                        SwingUtilities.invokeLater(() -> showError(ui("queueIndexRequired")));
+                        return;
+                    }
 
-                int index;
-                try {
-                    index = Integer.parseInt(raw);
-                } catch (NumberFormatException ex) {
-                    SwingUtilities.invokeLater(() -> showError(ui("queueIndexRequired")));
-                    return;
+                    try {
+                        index = Integer.parseInt(raw);
+                    } catch (NumberFormatException ex) {
+                        SwingUtilities.invokeLater(() -> showError(ui("queueIndexRequired")));
+                        return;
+                    }
                 }
 
                 if (index < 1) {
@@ -421,8 +428,8 @@ public class ControlPanelApp {
                 }
 
                 try {
-                    runtime.launchPlayerPanelFromDesktop(guildId, channelId);
-                    log(ui("playerPanelPosted"));
+                    runtime.removePlayerPanelFromDesktop(guildId, channelId);
+                    log(ui("playerPanelRemoved"));
                     refreshPlayerSummaryAsync();
                 } catch (Exception ex) {
                     SwingUtilities.invokeLater(() -> showError(ex.getMessage()));
@@ -468,7 +475,7 @@ public class ControlPanelApp {
         styleSecondaryButton(earRapeToggleButton);
         setEarRapeEnabled(false);
         refreshDesktopButton = new JButton(ui("refreshLists"));
-        launchPlayerButton = new JButton(ui("launchPlayer"));
+        launchPlayerButton = new JButton(ui("removePlayer"));
         styleSecondaryButton(refreshDesktopButton);
         stylePrimaryButton(launchPlayerButton);
         playerSummaryArea = new JTextArea(16, 58);
@@ -476,6 +483,18 @@ public class ControlPanelApp {
         playerSummaryArea.setBackground(new Color(20, 27, 36));
         playerSummaryArea.setForeground(new Color(218, 232, 246));
         playerSummaryArea.setText(ui("botNotRunning"));
+        queueListModel = new DefaultListModel<>();
+        queueList = new JList<>(queueListModel);
+        queueList.setSelectionMode(ListSelectionModel.SINGLE_SELECTION);
+        queueList.setVisibleRowCount(10);
+        queueList.addListSelectionListener(event -> {
+            if (!event.getValueIsAdjusting()) {
+                int selected = queueList.getSelectedIndex();
+                if (selected >= 0) {
+                    removeIndexField.setText(String.valueOf(selected + 1));
+                }
+            }
+        });
 
         c.gridx = 0;
         c.gridy = 0;
@@ -535,13 +554,23 @@ public class ControlPanelApp {
 
         c.gridx = 0;
         c.gridy = 3;
-        c.gridwidth = 3;
+        c.gridwidth = 4;
         panel.add(controls, c);
 
+        c.gridwidth = 3;
         c.gridy = 4;
+        c.gridx = 0;
         c.weighty = 1.0;
+        c.weightx = 1.0;
         c.fill = GridBagConstraints.BOTH;
         panel.add(new JScrollPane(playerSummaryArea), c);
+
+        c.gridx = 3;
+        c.gridwidth = 1;
+        c.weightx = 0.55;
+        JScrollPane queueScroll = new JScrollPane(queueList);
+        queueScroll.setBorder(BorderFactory.createTitledBorder(ui("queueList")));
+        panel.add(queueScroll, c);
 
         setDesktopControlsEnabled(false);
         return panel;
@@ -762,7 +791,16 @@ public class ControlPanelApp {
         worker.submit(() -> {
             Long guildId = selectedGuildId();
             String summary = guildId == null ? runtime.playerSummary() : runtime.playerSummaryForGuild(guildId);
-            SwingUtilities.invokeLater(() -> playerSummaryArea.setText(summary));
+            List<String> queue = guildId == null ? List.of() : runtime.playerQueueForGuild(guildId);
+            SwingUtilities.invokeLater(() -> {
+                playerSummaryArea.setText(summary);
+                if (queueListModel != null) {
+                    queueListModel.clear();
+                    for (int i = 0; i < queue.size(); i++) {
+                        queueListModel.addElement((i + 1) + ". " + queue.get(i));
+                    }
+                }
+            });
         });
     }
 
@@ -1049,7 +1087,7 @@ public class ControlPanelApp {
             case "resume" -> "Resume";
             case "skip" -> "Skip";
             case "refreshLists" -> "Refresh Lists";
-            case "launchPlayer" -> "Launch Player in Discord";
+            case "removePlayer" -> "Remove Player in Discord";
             case "botNotRunning" -> "Bot is not running.";
             case "guild" -> "Guild";
             case "textChannel" -> "Text channel";
@@ -1082,7 +1120,7 @@ public class ControlPanelApp {
             case "desktopSearchCancelled" -> "Desktop search cancelled";
             case "desktopQueued" -> "Desktop queued";
             case "desktopQueuedNext" -> "Queued as next";
-            case "playerPanelPosted" -> "Posted player panel to Discord.";
+            case "playerPanelRemoved" -> "Removed player panel from Discord.";
             case "desktopAction" -> "Desktop action";
             case "chooseTrackFor" -> "Choose a track for";
             case "searchResults" -> "Search Results";
@@ -1091,6 +1129,7 @@ public class ControlPanelApp {
             case "copySummary" -> "Copy Summary";
             case "queueIndex" -> "Queue #";
             case "queueIndexHint" -> "Track number in queue (1..n)";
+            case "queueList" -> "Queue (select item to remove)";
             case "queueRemove" -> "Remove";
             case "queueShuffle" -> "Shuffle";
             case "queueClear" -> "Clear Queue";
@@ -1120,11 +1159,12 @@ public class ControlPanelApp {
             case "resume" -> "Продолжить";
             case "skip" -> "Пропуск";
             case "refreshLists" -> "Обновить списки";
-            case "launchPlayer" -> "Запустить плеер в Discord";
+            case "removePlayer" -> "Убрать плеер из Discord";
             case "clearConsole" -> "Очистить консоль";
             case "copySummary" -> "Копировать сводку";
             case "queueIndex" -> "№ в очереди";
             case "queueIndexHint" -> "Номер трека в очереди (1..n)";
+            case "queueList" -> "Очередь (выберите трек для удаления)";
             case "queueRemove" -> "Удалить";
             case "queueShuffle" -> "Перемешать";
             case "queueClear" -> "Очистить очередь";
@@ -1165,7 +1205,9 @@ public class ControlPanelApp {
             case "javaIncluded" -> byLang(lang, "Desktop installers already include Java runtime.", "Desktop տեղադրիչներն արդեն ներառում են Java runtime։", "Desktop ინსტალატორებში Java runtime უკვე შედის.", "Desktop quraşdırıcılarına Java runtime daxildir.", "Desktop орнатқыштарында Java runtime бар.", "Desktop o‘rnatgichlarda Java runtime bor.", "Desktop-інсталятори вже містять Java runtime.", "Desktop-Installer enthalten bereits Java Runtime.", "Los instaladores desktop ya incluyen Java runtime.", "Gli installer desktop includono già Java runtime.", "Os instaladores desktop já incluem Java runtime.", "桌面安装包已包含 Java 运行时。", "デスクトップインストーラーにはJavaランタイムが含まれています。" );
             case "desktopSearchCancelled" -> byLang(lang, "Desktop search cancelled", "Desktop որոնումը չեղարկվեց", "Desktop ძიება გაუქმდა", "Desktop axtarışı ləğv edildi", "Desktop іздеу тоқтатылды", "Desktop qidiruvi bekor qilindi", "Desktop пошук скасовано", "Desktop-Suche abgebrochen", "Búsqueda desktop cancelada", "Ricerca desktop annullata", "Pesquisa desktop cancelada", "桌面搜索已取消", "デスクトップ検索をキャンセルしました");
             case "desktopQueued" -> byLang(lang, "Desktop queued", "Desktop-ից հերթագրվեց", "Desktop-დან დაემატა რიგში", "Desktop-dan növbəyə əlavə edildi", "Desktop-тен кезекке қосылды", "Desktop'dan navbatga qo‘shildi", "Додано в чергу з Desktop", "Von Desktop in Warteschlange", "Agregado a cola desde desktop", "Aggiunto in coda da desktop", "Adicionado à fila pelo desktop", "已从桌面加入队列", "デスクトップからキューに追加");
-            case "playerPanelPosted" -> byLang(lang, "Posted player panel to Discord.", "Պլեյերի վահանակը ուղարկվեց Discord։", "პლეერის პანელი გაიგზავნა Discord-ში.", "Pleyer paneli Discord-a göndərildi.", "Плеер панелі Discord-қа жіберілді.", "Player panel Discord'ga yuborildi.", "Панель плеєра відправлено в Discord.", "Player-Panel in Discord gepostet.", "Panel del reproductor enviado a Discord.", "Pannello player inviato su Discord.", "Painel do player enviado ao Discord.", "播放器面板已发送到 Discord。", "プレーヤーパネルをDiscordに送信しました。");
+            case "queueList" -> byLang(lang, "Queue (select item to remove)", "Հերթ (ընտրեք հեռացնելու համար)", "რიგი (ასარჩევად წასაშლელად)", "Növbə (silmək üçün seçin)", "Кезек (өшіру үшін таңдаңыз)", "Navbat (o‘chirish uchun tanlang)", "Черга (виберіть елемент для видалення)", "Warteschlange (Element zum Entfernen wählen)", "Cola (selecciona elemento para eliminar)", "Coda (seleziona elemento da rimuovere)", "Fila (selecione item para remover)", "队列（选择要移除的项目）", "キュー（削除する項目を選択）");
+            case "removePlayer" -> byLang(lang, "Remove Player in Discord", "Հեռացնել պլեյերը Discord-ում", "Discord-ში პლეერის წაშლა", "Discord-da pleyeri sil", "Discord-та плеерді жою", "Discord'da pleyerni olib tashlash", "Видалити плеєр у Discord", "Player in Discord entfernen", "Quitar reproductor en Discord", "Rimuovi player su Discord", "Remover player no Discord", "在 Discord 中移除播放器", "Discordでプレーヤーを削除");
+            case "playerPanelRemoved" -> byLang(lang, "Removed player panel from Discord.", "Պլեյերի վահանակը հեռացվեց Discord-ից։", "პლეერის პანელი წაიშალა Discord-იდან.", "Pleyer paneli Discord-dan silindi.", "Плеер панелі Discord-тан жойылды.", "Player panel Discord'dan olib tashlandi.", "Панель плеєра видалено з Discord.", "Player-Panel aus Discord entfernt.", "Panel del reproductor eliminado de Discord.", "Pannello player rimosso da Discord.", "Painel do player removido do Discord.", "已从 Discord 移除播放器面板。", "プレーヤーパネルをDiscordから削除しました。");
             case "desktopAction" -> byLang(lang, "Desktop action", "Desktop գործողություն", "Desktop ქმედება", "Desktop əməliyyatı", "Desktop әрекеті", "Desktop amali", "Desktop дія", "Desktop-Aktion", "Acción de desktop", "Azione desktop", "Ação desktop", "桌面操作", "デスクトップ操作");
             case "chooseTrackFor" -> byLang(lang, "Choose a track for", "Ընտրեք թրեք", "აირჩიეთ ტრეკი", "Trek seçin", "Тректі таңдаңыз", "Trekni tanlang", "Оберіть трек для", "Track auswählen für", "Elegir pista para", "Scegli una traccia per", "Escolha uma faixa para", "为以下内容选择曲目", "次の曲を選択");
             case "searchResults" -> byLang(lang, "Search Results", "Որոնման արդյունքներ", "ძიების შედეგები", "Axtarış nəticələri", "Іздеу нәтижелері", "Qidiruv natijalari", "Результати пошуку", "Suchergebnisse", "Resultados de búsqueda", "Risultati di ricerca", "Resultados da pesquisa", "搜索结果", "検索結果");

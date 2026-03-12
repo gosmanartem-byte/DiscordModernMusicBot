@@ -4,6 +4,7 @@ import java.nio.file.Path;
 import java.time.Instant;
 import java.util.EnumSet;
 import java.util.List;
+import java.util.concurrent.TimeUnit;
 import java.util.function.Consumer;
 
 import club.minnced.discord.jdave.interop.JDaveSessionFactory;
@@ -136,7 +137,27 @@ public class BotRuntime {
             return;
         }
 
-        jda.shutdownNow();
+        if (musicController != null) {
+            for (Guild guild : jda.getGuilds()) {
+                long preferredChannelId = musicController.preferredTextChannelId(guild.getIdLong());
+                TextChannel channel = preferredChannelId == 0L ? null : guild.getTextChannelById(preferredChannelId);
+                if (channel != null) {
+                    musicController.stopFromRuntime(channel);
+                } else {
+                    musicController.removePlayerPanelForGuild(guild);
+                }
+            }
+        }
+
+        jda.shutdown();
+        try {
+            if (!jda.awaitShutdown(4, TimeUnit.SECONDS)) {
+                jda.shutdownNow();
+            }
+        } catch (InterruptedException ignored) {
+            Thread.currentThread().interrupt();
+            jda.shutdownNow();
+        }
         jda = null;
         musicController = null;
         settingsStore = null;
@@ -256,6 +277,11 @@ public class BotRuntime {
         musicController.sendPlayerPanelFromDesktop(channel);
     }
 
+    public synchronized void removePlayerPanelFromDesktop(long guildId, long channelId) {
+        TextChannel channel = requireTextChannel(guildId, channelId);
+        musicController.removePlayerPanelFromDesktop(channel);
+    }
+
     public synchronized String playerSummary() {
         if (musicController == null) {
             return "Bot is not running.";
@@ -280,6 +306,13 @@ public class BotRuntime {
             return 0L;
         }
         return musicController.preferredTextChannelId(guildId);
+    }
+
+    public synchronized List<String> playerQueueForGuild(long guildId) {
+        if (musicController == null) {
+            return List.of();
+        }
+        return musicController.desktopQueueEntries(guildId);
     }
 
     private TextChannel requireTextChannel(long guildId, long channelId) {

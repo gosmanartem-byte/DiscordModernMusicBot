@@ -119,6 +119,7 @@ public class MusicController {
 
         GuildMusicManager musicManager = getGuildMusicManager(channel.getGuild());
         connect(channel.getGuild(), voiceChannel, musicManager);
+        ensurePersistentPlayerPanel(channel);
 
         GuildVoiceState selfVoiceState = channel.getGuild().getSelfMember().getVoiceState();
         if (selfVoiceState != null && selfVoiceState.isGuildMuted()) {
@@ -213,6 +214,7 @@ public class MusicController {
         }
 
         connect(channel.getGuild(), voiceChannel, musicManager);
+        ensurePersistentPlayerPanel(channel);
 
         channel.sendMessage(localI18n.t("loading", displayIdentifier)).queue();
         playerManager.loadItemOrdered(musicManager, resolvedIdentifier, new AudioLoadResultHandler() {
@@ -339,6 +341,14 @@ public class MusicController {
     public void sendPlayerPanelFromDesktop(TextChannel channel) {
         String prefix = settingsStore.get(channel.getGuild().getIdLong()).prefix();
         sendPlayerPanel(channel, prefix);
+    }
+
+    public void removePlayerPanelFromDesktop(TextChannel channel) {
+        clearPersistentPlayerPanel(channel.getGuild());
+    }
+
+    public void removePlayerPanelForGuild(Guild guild) {
+        clearPersistentPlayerPanel(guild);
     }
 
     public SearchSelectionOutcome chooseSearchResult(TextChannel channel, Member member, String selectionId, int index) {
@@ -470,6 +480,19 @@ public class MusicController {
         return summary.toString().trim();
     }
 
+    public List<String> desktopQueueEntries(long guildId) {
+        GuildMusicManager manager = musicManagers.get(guildId);
+        if (manager == null || manager.scheduler.getQueue().isEmpty()) {
+            return List.of();
+        }
+
+        List<String> entries = new ArrayList<>();
+        for (AudioTrack queued : manager.scheduler.getQueue()) {
+            entries.add(queued.getInfo().title);
+        }
+        return entries;
+    }
+
     public void skip(TextChannel channel) {
         I18n localI18n = guildI18n(channel.getGuild());
         GuildMusicManager musicManager = getGuildMusicManager(channel.getGuild());
@@ -536,6 +559,17 @@ public class MusicController {
         // Run a second pass shortly after stop to catch straggler messages posted asynchronously.
         CompletableFuture.delayedExecutor(1, TimeUnit.SECONDS).execute(() -> cleanupRecentChat(channel));
         CompletableFuture.delayedExecutor(3, TimeUnit.SECONDS).execute(() -> cleanupRecentChat(channel));
+    }
+
+    public void stopFromRuntime(TextChannel channel) {
+        long guildId = channel.getGuild().getIdLong();
+        stopCleanupUntilMillis.put(guildId, System.currentTimeMillis() + 10_000L);
+        clearPersistentPlayerPanel(channel.getGuild());
+        GuildMusicManager musicManager = getGuildMusicManager(channel.getGuild());
+        musicManager.scheduler.stop();
+        channel.getGuild().getAudioManager().closeAudioConnection();
+        updatePresence(channel.getGuild());
+        cleanupRecentChatBlocking(channel);
     }
 
     public void setVolume(TextChannel channel, int volume) {
@@ -917,12 +951,27 @@ public class MusicController {
                 .setColor(current == null ? new Color(120, 120, 120) : new Color(46, 204, 113))
                 .addField(localI18n.t("player.status"), state, true)
                 .addField(localI18n.t("player.voice"), voiceValue, true)
-                .addField(localI18n.t("player.volume"), musicManager.player.getVolume() + "%", true)
+                .addField(
+                        localI18n.t("player.volume"),
+                        musicManager.player.getVolume() + "%\n" + localI18n.t("player.bass") + ": " + musicManager.getBassLevel(),
+                        true
+                )
                 .addField(localI18n.t("player.track"), trackValue, false)
                 .addField(localI18n.t("player.queuePreview"), queueValue, false)
-                .addField(localI18n.t("player.bass"), String.valueOf(musicManager.getBassLevel()), true)
                 .setFooter(localI18n.t("player.footer", prefix))
                 .build();
+    }
+
+    private void ensurePersistentPlayerPanel(TextChannel channel) {
+        long guildId = channel.getGuild().getIdLong();
+        Long trackedMessageId = playerPanelMessageIds.get(guildId);
+        if (trackedMessageId != null) {
+            refreshPersistentPlayerPanel(channel.getGuild());
+            return;
+        }
+
+        String prefix = settingsStore.get(guildId).prefix();
+        sendPlayerPanel(channel, prefix);
     }
 
     private String buildTrackValue(GuildMusicManager musicManager, AudioTrack current) {
@@ -1210,6 +1259,12 @@ public class MusicController {
                     ignored -> {
                     },
                     ignored -> {
+                        bulkEligible.forEach(message -> message.delete().queue(
+                                done -> {
+                                },
+                                fail -> {
+                                }
+                        ));
                     }
             );
         } else if (bulkEligible.size() == 1) {
@@ -1227,6 +1282,74 @@ public class MusicController {
                 ignored -> {
                 }
         ));
+    }
+
+    private void cleanupRecentChatBlocking(TextChannel channel) {
+        String beforeId = null;
+
+        while (true) {
+            List<Message> messages;
+            try {
+                if (beforeId == null) {
+                    messages = channel.getHistory().retrievePast(BULK_DELETE_LIMIT).complete();
+                } else {
+                    messages = channel.getHistoryBefore(beforeId, BULK_DELETE_LIMIT).complete().getRetrievedHistory();
+                }
+            } catch (RuntimeException ignored) {
+                return;
+            }
+
+            if (messages.isEmpty()) {
+                return;
+            }
+
+            fastDeleteBatchBlocking(channel, messages);
+
+            if (messages.size() < BULK_DELETE_LIMIT) {
+                return;
+            }
+
+            beforeId = messages.get(messages.size() - 1).getId();
+        }
+    }
+
+    private void fastDeleteBatchBlocking(TextChannel channel, List<Message> messages) {
+        OffsetDateTime bulkCutoff = OffsetDateTime.now(ZoneOffset.UTC).minusDays(14);
+        List<Message> bulkEligible = new ArrayList<>();
+        List<Message> fallback = new ArrayList<>();
+
+        for (Message message : messages) {
+            if (message.getTimeCreated().isAfter(bulkCutoff)) {
+                bulkEligible.add(message);
+            } else {
+                fallback.add(message);
+            }
+        }
+
+        if (bulkEligible.size() >= 2) {
+            try {
+                channel.deleteMessages(bulkEligible).complete();
+            } catch (RuntimeException ignored) {
+                for (Message message : bulkEligible) {
+                    try {
+                        message.delete().complete();
+                    } catch (RuntimeException ignoredSingle) {
+                    }
+                }
+            }
+        } else if (bulkEligible.size() == 1) {
+            try {
+                bulkEligible.get(0).delete().complete();
+            } catch (RuntimeException ignored) {
+            }
+        }
+
+        for (Message message : fallback) {
+            try {
+                message.delete().complete();
+            } catch (RuntimeException ignored) {
+            }
+        }
     }
 
     private List<MessageTopLevelComponent> playerComponents(I18n localI18n) {
