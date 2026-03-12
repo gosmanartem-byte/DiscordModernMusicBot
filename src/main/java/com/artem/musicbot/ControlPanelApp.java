@@ -10,7 +10,6 @@ import java.awt.Image;
 import java.awt.Insets;
 import java.awt.Taskbar;
 import java.awt.Toolkit;
-import java.awt.datatransfer.StringSelection;
 import java.awt.event.KeyEvent;
 import java.io.IOException;
 import java.io.InputStream;
@@ -88,7 +87,6 @@ public class ControlPanelApp {
     private JButton stopButton;
     private JButton saveButton;
     private JButton clearConsoleButton;
-    private JButton copySummaryButton;
     private JComboBox<GuildOption> guildCombo;
     private JComboBox<ChannelOption> channelCombo;
     private JTextField addSongField;
@@ -107,7 +105,6 @@ public class ControlPanelApp {
     private boolean earRapeEnabled;
     private JButton refreshDesktopButton;
     private JButton launchPlayerButton;
-    private JTextArea playerSummaryArea;
     private JList<String> queueList;
     private DefaultListModel<String> queueListModel;
     private Timer desktopRefreshTimer;
@@ -191,18 +188,15 @@ public class ControlPanelApp {
         stopButton = new JButton(ui("stop"));
         saveButton = new JButton(ui("saveSettings"));
         clearConsoleButton = new JButton(ui("clearConsole"));
-        copySummaryButton = new JButton(ui("copySummary"));
         stylePrimaryButton(startButton);
         styleSecondaryButton(stopButton);
         styleSecondaryButton(saveButton);
         styleSecondaryButton(clearConsoleButton);
-        styleSecondaryButton(copySummaryButton);
         stopButton.setEnabled(false);
         buttons.add(startButton);
         buttons.add(stopButton);
         buttons.add(saveButton);
         buttons.add(clearConsoleButton);
-        buttons.add(copySummaryButton);
 
         console = new JTextArea();
         console.setEditable(false);
@@ -318,27 +312,10 @@ public class ControlPanelApp {
                 setDesktopControlsEnabled(false);
                 setCleanupScopeButtonState(false, false);
                 setPlayerPanelToggleButtonState(false, false);
-                if (playerSummaryArea != null) {
-                    playerSummaryArea.setText(ui("botNotRunning"));
-                }
             });
         }));
 
         clearConsoleButton.addActionListener(e -> console.setText(""));
-
-        copySummaryButton.addActionListener(e -> {
-            if (playerSummaryArea == null) {
-                showError("Player summary is not available on this platform mode.");
-                return;
-            }
-            String summary = playerSummaryArea.getText();
-            if (summary == null || summary.isBlank()) {
-                showError("Nothing to copy yet.");
-                return;
-            }
-            Toolkit.getDefaultToolkit().getSystemClipboard().setContents(new StringSelection(summary), null);
-            log("Player summary copied to clipboard.");
-        });
 
         if (isDesktopOnboardingEnabled()) {
             guildCombo.addActionListener(ignored -> refreshChannelsAsync());
@@ -515,11 +492,6 @@ public class ControlPanelApp {
         styleSecondaryButton(refreshDesktopButton);
         stylePrimaryButton(launchPlayerButton);
         setPlayerPanelToggleButtonState(false, false);
-        playerSummaryArea = new JTextArea(16, 58);
-        playerSummaryArea.setEditable(false);
-        playerSummaryArea.setBackground(new Color(20, 27, 36));
-        playerSummaryArea.setForeground(new Color(218, 232, 246));
-        playerSummaryArea.setText(ui("botNotRunning"));
         queueListModel = new DefaultListModel<>();
         queueList = new JList<>(queueListModel);
         queueList.setSelectionMode(ListSelectionModel.SINGLE_SELECTION);
@@ -595,17 +567,12 @@ public class ControlPanelApp {
         c.gridwidth = 4;
         panel.add(controls, c);
 
-        c.gridwidth = 3;
         c.gridy = 4;
         c.gridx = 0;
         c.weighty = 1.0;
+        c.gridwidth = 4;
         c.weightx = 1.0;
         c.fill = GridBagConstraints.BOTH;
-        panel.add(new JScrollPane(playerSummaryArea), c);
-
-        c.gridx = 3;
-        c.gridwidth = 1;
-        c.weightx = 0.55;
         JScrollPane queueScroll = new JScrollPane(queueList);
         queueScroll.setBorder(BorderFactory.createTitledBorder(ui("queueList")));
         panel.add(queueScroll, c);
@@ -860,16 +827,14 @@ public class ControlPanelApp {
     }
 
     private void refreshPlayerSummaryAsync() {
-        if (!isDesktopOnboardingEnabled() || playerSummaryArea == null) {
+        if (!isDesktopOnboardingEnabled()) {
             return;
         }
         worker.submit(() -> {
             Long guildId = selectedGuildId();
-            String summary = guildId == null ? runtime.playerSummary() : runtime.playerSummaryForGuild(guildId);
             List<String> queue = guildId == null ? List.of() : runtime.playerQueueForGuild(guildId);
             boolean hasPanel = guildId != null && runtime.hasPlayerPanelForGuild(guildId);
             SwingUtilities.invokeLater(() -> {
-                playerSummaryArea.setText(summary);
                 setPlayerPanelToggleButtonState(runtime.isRunning(), hasPanel);
                 if (queueListModel != null) {
                     queueListModel.clear();
