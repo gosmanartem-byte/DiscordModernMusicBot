@@ -60,9 +60,6 @@ Var ProgressFrame
 !ifndef SWP_NOMOVE
 !define SWP_NOMOVE 0x0002
 !endif
-!ifndef SWP_NOZORDER
-!define SWP_NOZORDER 0x0004
-!endif
 !ifndef HWND_BOTTOM
 !define HWND_BOTTOM 1
 !endif
@@ -96,10 +93,6 @@ Function .onInit
   File /oname=$PLUGINSDIR\\bar_frame.bmp "${ROOT_DIR}\\release-assets\\windows\\installer\\nsis\\bar_frame.bmp"
 FunctionEnd
 
-Function .onGUIInit
-  Call EnsureWindowSize
-FunctionEnd
-
 Function HideDefaultButtons
   GetDlgItem $0 $HWNDPARENT 1
   ShowWindow $0 0
@@ -112,31 +105,32 @@ FunctionEnd
 Function CreateBg
   ${NSD_CreateBitmap} 0 0 100% 100% ""
   Pop $BgImage
-  System::Call 'user32::GetClientRect(i $HWNDPARENT, *i .r1, *i .r2, *i .r3, *i .r4)'
-  System::Call 'user32::LoadImageW(i 0, w "$PLUGINSDIR\\bg.bmp", i ${IMAGE_BITMAP}, i r3, i r4, i ${LR_LOADFROMFILE}) i.r5'
+  Call GetClientSize
+  Pop $1
+  Pop $0
+  System::Call 'user32::LoadImageW(i 0, w "$PLUGINSDIR\\bg.bmp", i ${IMAGE_BITMAP}, i $0, i $1, i ${LR_LOADFROMFILE}) i.r5'
   SendMessage $BgImage ${STM_SETIMAGE} ${IMAGE_BITMAP} $5
 FunctionEnd
 
-Function EnsureWindowSize
-  ; Match the window client area to the 640x480 background bitmap.
-  StrCpy $0 640
-  StrCpy $1 480
-  System::Call 'user32::GetClientRect(i $HWNDPARENT, *i .r2, *i .r3, *i .r4, *i .r5)'
-  System::Call 'user32::GetWindowRect(i $HWNDPARENT, *i .r6, *i .r7, *i .r8, *i .r9)'
-  IntOp $6 $8 - $6
-  IntOp $7 $9 - $7
-  IntOp $6 $6 - $4
-  IntOp $7 $7 - $5
-  IntOp $6 $6 + $0
-  IntOp $7 $7 + $1
-  System::Call 'user32::SetWindowPos(i $HWNDPARENT, i 0, i 0, i 0, i $6, i $7, i ${SWP_NOMOVE}|${SWP_NOZORDER})'
+Function GetClientSize
+  System::Alloc 16
+  Pop $2
+  System::Call 'user32::GetClientRect(i $HWNDPARENT, i $2)'
+  System::Call '*$2(i .r1, i .r2, i .r3, i .r4)'
+  System::Free $2
+  IntOp $0 $3 - $1
+  IntOp $1 $4 - $2
+  Push $0
+  Push $1
 FunctionEnd
 
 Function ApplyBackgroundToParent
   Exch $0
-  System::Call 'user32::GetClientRect(i $0, *i .r1, *i .r2, *i .r3, *i .r4)'
-  System::Call 'user32::CreateWindowExW(i 0, w "STATIC", w "", i 0x5000000E, i 0, i 0, i r3, i r4, i $0, i 0, i 0, i 0) i.r1'
-  System::Call 'user32::LoadImageW(i 0, w "$PLUGINSDIR\\bg.bmp", i ${IMAGE_BITMAP}, i r3, i r4, i ${LR_LOADFROMFILE}) i.r2'
+  Call GetClientSize
+  Pop $2
+  Pop $1
+  System::Call 'user32::CreateWindowExW(i 0, w "STATIC", w "", i 0x5000000E, i 0, i 0, i $1, i $2, i $0, i 0, i 0, i 0) i.r1'
+  System::Call 'user32::LoadImageW(i 0, w "$PLUGINSDIR\\bg.bmp", i ${IMAGE_BITMAP}, i $1, i $2, i ${LR_LOADFROMFILE}) i.r2'
   SendMessage $1 ${STM_SETIMAGE} ${IMAGE_BITMAP} $2
   System::Call 'user32::SetWindowPos(i $1, i ${HWND_BOTTOM}, i 0, i 0, i 0, i 0, i ${SWP_NOMOVE}|${SWP_NOSIZE})'
 FunctionEnd
