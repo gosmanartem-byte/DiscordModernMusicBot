@@ -225,30 +225,6 @@ Function DirectoryCreate
   nsDialogs::Show
 FunctionEnd
 
-Function InstFilesCreate
-  nsDialogs::Create 1018
-  Pop $Dialog
-  Call CreateBg
-  Call HideDefaultButtons
-  System::Call 'user32::SetWindowTextW(i $HWNDPARENT, w "ModernMusicBot Setup")'
-
-  Push "78%"
-  Push "80%"
-  Push "$PLUGINSDIR\\btn_install.bmp"
-  Call CreateImageButton
-  Pop $NextBtn
-  ${NSD_OnClick} $NextBtn OnNext
-
-  Push "78%"
-  Push "89%"
-  Push "$PLUGINSDIR\\btn_cancel.bmp"
-  Call CreateImageButton
-  Pop $CancelBtn
-  ${NSD_OnClick} $CancelBtn OnCancel
-
-  nsDialogs::Show
-FunctionEnd
-
 Function FinishCreate
   nsDialogs::Create 1018
   Pop $Dialog
@@ -310,16 +286,19 @@ Function InstFilesShow
   ${EndIf}
 
   GetDlgItem $0 $HWNDPARENT 1
+  ShowWindow $0 1
   Push $0
-  Push "$PLUGINSDIR\\btn_finish.bmp"
+  Push "$PLUGINSDIR\\btn_install.bmp"
   Call ApplyButtonBitmap
 
   GetDlgItem $0 $HWNDPARENT 2
+  ShowWindow $0 1
   Push $0
   Push "$PLUGINSDIR\\btn_cancel.bmp"
   Call ApplyButtonBitmap
 
   GetDlgItem $0 $HWNDPARENT 3
+  ShowWindow $0 0
   Push $0
   Push "$PLUGINSDIR\\btn_back.bmp"
   Call ApplyButtonBitmap
@@ -329,7 +308,7 @@ FunctionEnd
 Page custom WelcomeCreate
 Page custom DirectoryCreate
 PageEx instfiles
-  PageCallbacks InstFilesCreate InstFilesShow ""
+  PageCallbacks "" InstFilesShow ""
 PageExEnd
 Page custom FinishCreate
 
@@ -341,4 +320,5 @@ Section "Install"
   File "${ROOT_DIR}\\README.md"
   File "${ROOT_DIR}\\README_INSTALLATION.md"
   File "${ROOT_DIR}\\LICENSE"
+  CreateShortCut "$DESKTOP\\ModernMusicBot.lnk" "$INSTDIR\\ModernMusicBot.exe"
 SectionEnd
