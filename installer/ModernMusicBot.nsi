@@ -31,21 +31,51 @@ Var ProgressNative
 Var ProgressCustom
 Var ProgressFrame
 
+!ifndef IMAGE_BITMAP
 !define IMAGE_BITMAP 0
+!endif
+!ifndef LR_LOADFROMFILE
 !define LR_LOADFROMFILE 0x0010
+!endif
+!ifndef BS_BITMAP
 !define BS_BITMAP 0x00000080
+!endif
+!ifndef BS_FLAT
 !define BS_FLAT 0x00008000
+!endif
+!ifndef WS_TABSTOP
 !define WS_TABSTOP 0x00010000
+!endif
+!ifndef BM_SETIMAGE
 !define BM_SETIMAGE 0x00F7
+!endif
+!ifndef SWP_NOSIZE
 !define SWP_NOSIZE 0x0001
+!endif
+!ifndef SWP_NOMOVE
 !define SWP_NOMOVE 0x0002
+!endif
+!ifndef HWND_BOTTOM
 !define HWND_BOTTOM 1
+!endif
+!ifndef PBM_SETRANGE
 !define PBM_SETRANGE 0x0401
+!endif
+!ifndef PBM_SETPOS
 !define PBM_SETPOS 0x0402
+!endif
+!ifndef PBM_GETPOS
 !define PBM_GETPOS 0x0408
+!endif
+!ifndef PBM_SETBARCOLOR
 !define PBM_SETBARCOLOR 0x0409
+!endif
+!ifndef PBM_SETBKCOLOR
 !define PBM_SETBKCOLOR 0x2001
+!endif
+!ifndef PBS_SMOOTH
 !define PBS_SMOOTH 0x00000001
+!endif
 
 Function .onInit
   InitPluginsDir
