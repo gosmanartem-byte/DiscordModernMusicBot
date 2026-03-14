@@ -39,6 +39,9 @@ Var ProgressFrame
 !ifndef LR_LOADFROMFILE
 !define LR_LOADFROMFILE 0x0010
 !endif
+!ifndef LR_CREATEDIBSECTION
+!define LR_CREATEDIBSECTION 0x2000
+!endif
 !ifndef BS_BITMAP
 !define BS_BITMAP 0x00000080
 !endif
@@ -109,27 +112,31 @@ Function CreateBg
   Call GetClientSize
   Pop $1
   Pop $0
-  System::Call 'user32::LoadImageW(i 0, w "$PLUGINSDIR\\bg.bmp", i ${IMAGE_BITMAP}, i $0, i $1, i ${LR_LOADFROMFILE}) i.r5'
+  System::Call 'user32::LoadImageW(i 0, w "$PLUGINSDIR\\bg.bmp", i ${IMAGE_BITMAP}, i $0, i $1, i ${LR_LOADFROMFILE}|${LR_CREATEDIBSECTION}) i.r5'
   SendMessage $BgImage ${STM_SETIMAGE} ${IMAGE_BITMAP} $5
 FunctionEnd
 
 Function GetClientSize
   Exch $0
-  System::Call 'user32::GetClientRect(i $0, *i .r1, *i .r2, *i .r3, *i .r4)'
-  IntOp $1 $3 - $1
+  System::Alloc 16
+  Pop $1
+  System::Call 'user32::GetClientRect(i $0, i $1)'
+  System::Call '*$1(i .r2, i .r3, i .r4, i .r5)'
+  System::Free $1
   IntOp $2 $4 - $2
-  Push $1
+  IntOp $3 $5 - $3
   Push $2
+  Push $3
 FunctionEnd
 
 Function ApplyBackgroundToParent
   Exch $0
   Push $0
   Call GetClientSize
-  Pop $2
-  Pop $1
-  System::Call 'user32::CreateWindowExW(i 0, w "STATIC", w "", i 0x5000000E, i 0, i 0, i $1, i $2, i $0, i 0, i 0, i 0) i.r1'
-  System::Call 'user32::LoadImageW(i 0, w "$PLUGINSDIR\\bg.bmp", i ${IMAGE_BITMAP}, i $1, i $2, i ${LR_LOADFROMFILE}) i.r2'
+  Pop $4
+  Pop $3
+  System::Call 'user32::CreateWindowExW(i 0, w "STATIC", w "", i 0x5000000E, i 0, i 0, i $3, i $4, i $0, i 0, i 0, i 0) i.r1'
+  System::Call 'user32::LoadImageW(i 0, w "$PLUGINSDIR\\bg.bmp", i ${IMAGE_BITMAP}, i $3, i $4, i ${LR_LOADFROMFILE}|${LR_CREATEDIBSECTION}) i.r2'
   SendMessage $1 ${STM_SETIMAGE} ${IMAGE_BITMAP} $2
   System::Call 'user32::SetWindowPos(i $1, i ${HWND_BOTTOM}, i 0, i 0, i 0, i 0, i ${SWP_NOMOVE}|${SWP_NOSIZE})'
 FunctionEnd
