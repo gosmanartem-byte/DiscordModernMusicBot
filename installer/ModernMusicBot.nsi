@@ -169,6 +169,7 @@ Function WelcomeCreate
   Pop $Dialog
   Call CreateBg
   Call HideDefaultButtons
+  System::Call 'user32::SetWindowTextW(i $HWNDPARENT, w "ModernMusicBot Setup")'
 
   Push "78%"
   Push "70%"
@@ -192,6 +193,7 @@ Function DirectoryCreate
   Pop $Dialog
   Call CreateBg
   Call HideDefaultButtons
+  System::Call 'user32::SetWindowTextW(i $HWNDPARENT, w "ModernMusicBot Setup")'
 
   ${NSD_CreateText} 8% 60% 58% 6% "$INSTDIR"
   Pop $DirInput
@@ -209,6 +211,30 @@ Function DirectoryCreate
   Push "78%"
   Push "80%"
   Push "$PLUGINSDIR\\btn_next.bmp"
+  Call CreateImageButton
+  Pop $NextBtn
+  ${NSD_OnClick} $NextBtn OnNext
+
+  Push "78%"
+  Push "89%"
+  Push "$PLUGINSDIR\\btn_cancel.bmp"
+  Call CreateImageButton
+  Pop $CancelBtn
+  ${NSD_OnClick} $CancelBtn OnCancel
+
+  nsDialogs::Show
+FunctionEnd
+
+Function InstFilesCreate
+  nsDialogs::Create 1018
+  Pop $Dialog
+  Call CreateBg
+  Call HideDefaultButtons
+  System::Call 'user32::SetWindowTextW(i $HWNDPARENT, w "ModernMusicBot Setup")'
+
+  Push "78%"
+  Push "80%"
+  Push "$PLUGINSDIR\\btn_install.bmp"
   Call CreateImageButton
   Pop $NextBtn
   ${NSD_OnClick} $NextBtn OnNext
@@ -303,7 +329,7 @@ FunctionEnd
 Page custom WelcomeCreate
 Page custom DirectoryCreate
 PageEx instfiles
-  PageCallbacks "" InstFilesShow ""
+  PageCallbacks InstFilesCreate InstFilesShow ""
 PageExEnd
 Page custom FinishCreate
 
