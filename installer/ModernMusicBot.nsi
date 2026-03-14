@@ -14,7 +14,7 @@
 !endif
 
 Name "${APP_NAME}"
-OutFile "dist\\releases\\DiscordModernMusicBot-v${APP_VERSION}-windows-installer.exe"
+OutFile "${ROOT_DIR}\\dist\\releases\\DiscordModernMusicBot-v${APP_VERSION}-windows-installer.exe"
 InstallDir "$PROGRAMFILES\\${APP_NAME}"
 InstallDirRegKey HKCU "Software\\${APP_NAME}" "InstallDir"
 RequestExecutionLevel user
@@ -27,12 +27,10 @@ Var BgImage
 Var NextBtn
 Var BackBtn
 Var CancelBtn
-Var InstallBtn
 Var FinishBtn
 Var DirInput
 Var BrowseBtn
 Var ProgressNative
-Var ProgressCustom
 Var ProgressFrame
 
 !ifndef IMAGE_BITMAP
