@@ -20,10 +20,8 @@ AutoCloseWindow false
 Unicode true
 
 !define MUI_ABORTWARNING
-!ifexist "${ROOT_DIR}\\dist\\jpackage\\ModernMusicBot.ico"
 !define MUI_ICON "${ROOT_DIR}\\dist\\jpackage\\ModernMusicBot.ico"
 !define MUI_UNICON "${ROOT_DIR}\\dist\\jpackage\\ModernMusicBot.ico"
-!endif
 
 !insertmacro MUI_PAGE_WELCOME
 !insertmacro MUI_PAGE_DIRECTORY
