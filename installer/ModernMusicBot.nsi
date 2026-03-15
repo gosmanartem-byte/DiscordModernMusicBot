@@ -63,6 +63,9 @@ Var ProgressFrame
 !ifndef SWP_NOMOVE
 !define SWP_NOMOVE 0x0002
 !endif
+!ifndef SWP_NOZORDER
+!define SWP_NOZORDER 0x0004
+!endif
 !ifndef HWND_BOTTOM
 !define HWND_BOTTOM 1
 !endif
@@ -129,6 +132,35 @@ Function GetClientSize
   Push $3
 FunctionEnd
 
+Function AdjustDialogForButtons
+  ; Shrink the custom dialog so it doesn't cover the wizard buttons.
+  GetDlgItem $0 $HWNDPARENT 1
+  StrCmp $0 0 done
+
+  System::Alloc 16
+  Pop $1
+  System::Alloc 16
+  Pop $2
+  System::Call 'user32::GetWindowRect(i $HWNDPARENT, i $1)'
+  System::Call 'user32::GetWindowRect(i $0, i $2)'
+  System::Call '*$1(i .r3, i .r4, i .r5, i .r6)'
+  System::Call '*$2(i .r7, i .r8, i .r9, i .rA)'
+  System::Free $1
+  System::Free $2
+
+  Push $HWNDPARENT
+  Call GetClientSize
+  Pop $1
+  Pop $0
+
+  IntOp $2 $8 - $4
+  IntOp $2 $2 - 8
+  IntCmp $2 120 0 done done
+
+  System::Call 'user32::SetWindowPos(i $Dialog, i 0, i 0, i 0, i $0, i $2, i ${SWP_NOMOVE}|${SWP_NOZORDER})'
+done:
+FunctionEnd
+
 Function ApplyBackgroundToParent
   Exch $0
   Push $0
@@ -168,6 +200,7 @@ FunctionEnd
 Function WelcomeCreate
   nsDialogs::Create 1018
   Pop $Dialog
+  Call AdjustDialogForButtons
   Call CreateBg
   System::Call 'user32::SetWindowTextW(i $HWNDPARENT, w "ModernMusicBot Setup")'
 
@@ -192,6 +225,7 @@ FunctionEnd
 Function DirectoryCreate
   nsDialogs::Create 1018
   Pop $Dialog
+  Call AdjustDialogForButtons
   Call CreateBg
   System::Call 'user32::SetWindowTextW(i $HWNDPARENT, w "ModernMusicBot Setup")'
 
@@ -225,6 +259,7 @@ FunctionEnd
 Function FinishCreate
   nsDialogs::Create 1018
   Pop $Dialog
+  Call AdjustDialogForButtons
   Call CreateBg
   System::Call 'user32::SetWindowTextW(i $HWNDPARENT, w "ModernMusicBot Setup")'
 
